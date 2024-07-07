@@ -1,0 +1,16 @@
+<mujoco model="two_cups">
+    <statistic center="0 0 0.8" extent="2"/>  
+    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <option timestep="0.1"/>
+
+    <asset>    
+        <mesh file="table_object_6_cup.stl" scale="0.006 0.006 0.006"/>
+    </asset>
+
+    <worldbody>
+        <body name="objects" pos="0 0 0">
+            <geom name="geo_8" class="visual" mesh="table_object_6_cup" pos="-0.5 0 0"/>
+            <geom name="geo_9" class="visual" mesh="table_object_6_cup" pos="0.5 0 0"/>
+        </body>
+    </worldbody>
+</mujoco>

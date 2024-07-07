@@ -1,0 +1,29 @@
+<mujoco model="object_grid">
+    <statistic center="0 0 0.8" extent="2"/>  
+    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <option timestep="0.1"/>
+
+    <asset>    
+        <mesh file="table_object_1_bowl.stl" scale="0.25 0.25 0.25"/>
+        <mesh file="table_object_2_jar.stl" scale="0.003 0.003 0.003"/>
+        <mesh file="table_object_3_vase.stl" scale="0.0036 0.0036 0.0036"/>
+        <mesh file="table_object_4_bear.stl" scale="0.11 0.11 0.11"/>
+        <mesh file="table_object_5_pot.stl" scale="0.026 0.026 0.026"/>
+        <mesh file="table_object_6_cup.stl" scale="0.009 0.009 0.009"/>
+    </asset>
+
+    <worldbody>
+        <body name="objects" pos="0 0 0">
+            <!-- <mesh name="base" file="assets/teddy_1_2_1.stl" scale="0.001 0.001 0.001"/> -->
+            <geom name="geo_1" class="visual" mesh="table_object_1_bowl" pos="0.1 0.1 0.1"/>
+            <!-- <geom name="geo_2" class="visual" mesh="table_object_2_jar" pos="0.1 0.1 0.1"/> -->
+            <geom name="geo_3" class="visual" mesh="table_object_2_jar" pos="0.1 0.1 0.1"/>
+            <geom name="geo_4" class="visual" mesh="table_object_3_vase" pos="0.1 0.1 0.1"/>
+            <geom name="geo_5" class="visual" mesh="table_object_1_bowl" pos="0.1 0.1 0.1"/>
+            <geom name="geo_6" class="visual" mesh="table_object_5_pot" pos="0.1 0.1 0.1"/>
+            <!-- <geom name="geo_7" class="visual" mesh="table_object_2_jar" pos="0.1 0.1 0.1"/> -->
+            <geom name="geo_8" class="visual" mesh="table_object_6_cup" pos="0.1 0.1 0.1"/>
+            <geom name="geo_9" class="visual" mesh="table_object_6_cup" pos="0.1 0.1 0.1"/>
+        </body>
+    </worldbody>
+</mujoco>

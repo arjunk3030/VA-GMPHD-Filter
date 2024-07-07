@@ -1,0 +1,56 @@
+<mujoco model="ycb_objects">
+    <statistic center="0 0 0.8" extent="2"/>  
+    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <option timestep="0.1"/>
+
+    <asset>    
+        <mesh file="YCB_objects/003_cracker_box.obj" scale="4 4 4"/>
+        <texture type="2d" name="003_texture" file="YCB_objects/textures/003_texture.png"/>
+        <material name="003_mtl" texture="003_texture"/>
+
+
+        <mesh file="YCB_objects/005_tomato_soup_can.obj" scale="4 4 4"/>
+        <texture type="2d" name="005_texture" file="YCB_objects/textures/005_texture.png"/>
+        <material name="005_mtl" texture="005_texture"/>
+
+
+        <mesh file="YCB_objects/006_mustard_bottle.obj" scale="4 4 4"/>
+        <texture type="2d" name="006_texture" file="YCB_objects/textures/006_texture.png"/>
+        <material name="006_mtl" texture="006_texture"/>
+
+        <mesh file="YCB_objects/010_potted_meat_can.obj" scale="4 4 4"/>
+        <texture type="2d" name="010_texture" file="YCB_objects/textures/010_texture.png"/>
+        <material name="010_mtl" texture="010_texture"/>
+
+
+        <mesh file="YCB_objects/024_bowl.obj" scale="4 4 4"/>
+        <texture type="2d" name="024_texture" file="YCB_objects/textures/024_texture.png"/>
+        <material name="024_mtl" texture="024_texture"/>
+
+
+        <mesh file="YCB_objects/025_mug.obj" scale="4 4 4"/>
+        <texture type="2d" name="025_texture" file="YCB_objects/textures/025_texture.png"/>
+        <material name="025_mtl" texture="025_texture"/>
+
+        <mesh file="YCB_objects/036_wood_block.obj" scale="2 2 2"/>
+        <texture type="2d" name="036_texture" file="YCB_objects/textures/036_texture.png"/>
+        <material name="036_mtl" texture="036_texture"/>
+
+
+        <mesh file="YCB_objects/077_rubiks_cube.obj" scale="4 4 4"/>
+        <texture type="2d" name="077_texture" file="YCB_objects/textures/077_texture.png"/>
+        <material name="077_mtl" texture="077_texture"/>
+    </asset>
+
+    <worldbody>
+        <body name="objects" pos="0 0 0">
+            <!-- <geom name="geo1" class="visual" mesh="005_tomato_soup_can"  material="005_mtl" pos="-0.75 -0.5 0"/> -->
+            <!-- <geom name="geo2" class="visual" mesh="006_mustard_bottle" material="006_mtl" pos="0.75 0 0"/> -->
+            <!-- <geom name="geo3" class="visual" mesh="024_bowl" material="024_mtl" pos="0 0 0"/> -->
+            <geom name="geo3" class="visual" mesh="003_cracker_box" material="003_mtl" pos="0 0 0" quat="0.7071 0.0 0.0 0.7071"/>
+            <!-- <geom name="geo4" class="visual" mesh="025_mug" material="025_mtl" pos="0.1 -0.5 0.2"/> -->
+            <!-- <geom name="geo5" class="visual" mesh="036_wood_block" material="036_mtl" pos="0.75 0.75 0"/>
+            <geom name="geo6" class="visual" mesh="010_potted_meat_can" material="010_mtl" pos="-0.75 0.75 0"/>  -->
+        </body>
+    </worldbody>
+</mujoco>

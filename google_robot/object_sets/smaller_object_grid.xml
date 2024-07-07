@@ -1,0 +1,26 @@
+<mujoco model="smaller_object_grid">
+    <statistic center="0 0 0.8" extent="2"/>  
+    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <option timestep="0.1"/>
+
+    <asset>    
+        <mesh file="table_object_1_bowl.stl" scale="0.16 0.16 0.16"/>
+        <mesh file="table_object_2_jar.stl" scale="0.002 0.002 0.002"/>
+        <mesh file="table_object_3_vase.stl" scale="0.0023 0.0023 0.0023"/>
+        <mesh file="table_object_4_bear.stl" scale="0.7 0.7 0.7"/>
+        <mesh file="table_object_5_pot.stl" scale="0.017 0.017 0.017"/>
+        <mesh file="table_object_6_cup.stl" scale="0.006 0.006 0.006"/>
+    </asset>
+
+    <worldbody>
+        <body name="objects" pos="0 0 0">
+            <geom class="visual" mesh="table_object_1_bowl" name="geo_1" pos="-0.78 -0.4 0" rgba="0.15 0.15 0.15 1.0"/>
+            <geom class="visual" mesh="table_object_2_jar" name="geo_3" pos="-0.8 0.89 0.42" rgba="0.15 0.95 0.95 1.0"/>
+            <geom class="visual" mesh="table_object_3_vase" name="geo_4" pos="0.14 -0.43 0" rgba="0.55 0.15 0.15 1.0"/>
+            <geom class="visual" mesh="table_object_1_bowl" name="geo_5" pos="0.04 0.13 0" rgba="0.55 0.55 0.55 1.0"/>
+            <geom class="visual" mesh="table_object_5_pot" name="geo_6" pos="0.12 0.9 0" rgba="0.55 0.95 0.95 1.0"/>
+            <geom class="visual" mesh="table_object_6_cup" name="geo_8" pos="0.97 0.05 0" rgba="0.95 0.55 0.55 1.0"/>
+            <geom class="visual" mesh="table_object_6_cup" name="geo_9" pos="0.86 0.96 0" rgba="0.95 0.95 0.95 1.0"/>
+        </body>
+    </worldbody>
+</mujoco>
