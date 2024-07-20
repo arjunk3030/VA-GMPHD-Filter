@@ -35,17 +35,17 @@ class TestKNearestNeighbor(unittest.TestCase):
 
             inds = knn(ref, query)
             for obj in gc.get_objects():
-                if torch.is_tensor(obj):
-                    print(
-                        functools.reduce(op.mul, obj.size())
-                        if len(obj.size()) > 0
-                        else 0,
-                        type(obj),
-                        obj.size(),
-                    )
+                # if torch.is_tensor(obj):
+                    # print(
+                    #     functools.reduce(op.mul, obj.size())
+                    #     if len(obj.size()) > 0
+                    #     else 0,
+                    #     type(obj),
+                    #     obj.size(),
+                    # )
             # ref = ref.cpu()
             # query = query.cpu()
-            print(inds)
+            # print(inds)
 
 
 if __name__ == "__main__":

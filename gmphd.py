@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.linalg as lin
 from typing import List, Dict, Any
-## FROM: https://github.com/djape24394/gmphd_filter
 
 
 def multivariate_gaussian(x: np.ndarray, m: np.ndarray, P: np.ndarray) -> float:
@@ -302,7 +301,10 @@ class GmphdFilter:
                 w.append(values[i] / normalization_factor)
                 m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
                 P.append(P_kk[i].copy())
-
+        print(
+            f"z {len(Z)}, v_copy {len(v_copy.w)}, v_residiual {len(v_residual.w)}  final {len(w)}"
+        )
+        print(w)
         return GaussianMixture(w, m, P)
 
     def pruning(self, v: GaussianMixture) -> GaussianMixture:
@@ -328,6 +330,7 @@ class GmphdFilter:
                     j = i
             L = []
             for i in I:
+                x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
                 if (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) <= self.U:
                     L.append(i)
             w_new = np.sum(vw[L])
@@ -353,8 +356,8 @@ class GmphdFilter:
         X = []
         for i in range(len(v.w)):
             if v.w[i] >= 0.5:
-                for j in range(int(np.round(v.w[i]))):
-                    X.append(v.m[i])
+                # for j in range(int(np.round(v.w[i]))):
+                X.append(v.m[i])
         return X
 
     def filter_data(self, Z: List[List[np.ndarray]]) -> List[List[np.ndarray]]:
