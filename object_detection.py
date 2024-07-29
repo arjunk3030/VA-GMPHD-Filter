@@ -152,9 +152,6 @@ def detect_objects(rgbImage, singleView):
             xs.append(x_center)
             ys.append(y_center)
             zs.append(singleView["depth_img"][round(y_center), round(x_center)])
-            print(
-                f"the type of the rgb images is {type(rgb_image)} and the depth image is {type(singleView["depth_img"])}"
-            )
 
         singleView["rgb_img"] = rgb_image
         singleView["objects"] = [

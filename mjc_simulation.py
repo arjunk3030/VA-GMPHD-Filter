@@ -10,6 +10,7 @@ from Constants import (
 )
 from DenseProcessor import DenseProcessor
 from TrajectorySettings import TRAJECTORY_PATH
+from filter_init import PhdFilter
 
 # from ModelProcessor import ModelProcessor
 import mujoco
@@ -26,6 +27,8 @@ from object_detection import detect_objects
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import ssl
+import PointEstimation
+import Util
 
 ssl._create_default_https_context = ssl._create_stdlib_context
 
@@ -45,162 +48,7 @@ def createGeom(scene: mujoco.MjvScene, location, rgba_given):
 def processView(
     singleView, model: mujoco.MjModel, scene: mujoco.MjvScene, r: mujoco.Renderer
 ):
-    def camera_intrinsic(model):
-        fov = model.vis.global_.fovy  # Field of view angle
-        width = CAMERA_WIDTH
-        height = CAMERA_HEIGHT
-
-        fW = (
-            0.5 * height / math.tan(fov * math.pi / 360)
-        )  # TODO if both should be height
-        fH = 0.5 * height / math.tan(fov * math.pi / 360)
-        return np.array(((fW, 0, width / 2), (0, fH, height / 2), (0, 0, 1)))
-
-    def image_to_camera_coordinates(x, y, depth, K):
-        x_norm = (x - K[0][2]) / K[0][0]
-        y_norm = (y - K[1][2]) / K[1][1]
-        x_c = x_norm * depth
-        y_c = y_norm * depth
-        z_c = depth
-        return x_c, y_c, z_c
-
-    def throughYolo(singleView, model, scene, r):
-        for object in singleView["objects"]:
-            camera_coordinates = np.array(
-                image_to_camera_coordinates(
-                    object[0], object[1], object[2], camera_intrinsic(model)
-                )
-            )
-            if all(coord == 0 for coord in camera_coordinates):
-                logging.error("Error detecting object location and/or depth")
-                continue
-
-            world_coordinates = (
-                np.dot(singleView["camera_matrix"]["rotation"], camera_coordinates)
-                + singleView["camera_matrix"]["translation"]
-            )
-
-            if DEBUG_MODE:
-                createGeom(
-                    scene,
-                    world_coordinates,
-                    [random.random(), random.random(), random.random(), 0.3],
-                )
-
     def through6dPose(singleView, model, scene, r):
-        def quaternion_to_rotation_matrix(q):
-            w, x, y, z = q
-            return np.array(
-                [
-                    [
-                        1 - 2 * y**2 - 2 * z**2,
-                        2 * x * y - 2 * w * z,
-                        2 * x * z + 2 * w * y,
-                    ],
-                    [
-                        2 * x * y + 2 * w * z,
-                        1 - 2 * x**2 - 2 * z**2,
-                        2 * y * z - 2 * w * x,
-                    ],
-                    [
-                        2 * x * z - 2 * w * y,
-                        2 * y * z + 2 * w * x,
-                        1 - 2 * x**2 - 2 * y**2,
-                    ],
-                ]
-            )
-
-        def rotation_matrix_to_euler(R):
-            sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
-
-            singular = sy < 1e-6
-
-            if not singular:
-                x = np.arctan2(R[2, 1], R[2, 2])
-                y = np.arctan2(-R[2, 0], sy)
-                z = np.arctan2(R[1, 0], R[0, 0])
-            else:
-                x = np.arctan2(-R[1, 2], R[1, 1])
-                y = np.arctan2(-R[2, 0], sy)
-                z = 0
-
-            return np.array([x, y, z])
-
-        def calculateAngle(q, rotation):
-            # rotation_camera_matrix = R.from_matrix(rotation)
-
-            # rotation_camera_matrix_inv = rotation_camera_matrix.inv()
-
-            # rotation_world = rotation_camera_matrix_inv * rotation_camera
-
-            # euler_world = rotation_world.as_quat()
-
-            # print("World-view-based quat angles:", euler_world)
-            # # Get the quaternion for the world-view-based rotation
-            # q_world = rotation_world.as_quat()
-            new_rot = np.dot(rotation, quaternion_to_rotation_matrix(q))
-            new_quat = R.from_matrix(new_rot).as_quat()
-            new_quat = [new_quat[3], new_quat[0], new_quat[1], new_quat[2]]
-            print("World-view-based quaternion:", new_quat)
-            print("Euler degrees: ", np.degrees(rotation_matrix_to_euler(new_rot)))
-
-        def distance_3d(point1, point2, extrinsics):
-            rotation_matrix = extrinsics["camera_matrix"]["rotation"]
-            translation = extrinsics["camera_matrix"]["translation"]
-
-            point1_world = rotation_matrix @ point1 + translation
-            point2_world = rotation_matrix @ point2 + translation
-
-            return np.linalg.norm(point1_world - point2_world)
-
-        def createChooseMask(
-            singleView, seed, model, tolerance_depth=0.05, tolerance_color=100
-        ):
-            depth_image = singleView["depth_img"]
-            rgb_image = np.array(singleView["rgb_img"])
-
-            height, width = depth_image.shape
-            segmented = np.zeros((height, width), dtype=np.uint8)
-            stack = [seed]
-            segmented[seed[1], seed[0]] = 255
-
-            while stack:
-                x, y = stack.pop()
-                current_3d = image_to_camera_coordinates(
-                    x,
-                    y,
-                    singleView["depth_img"][round(y), round(x)],
-                    camera_intrinsic(model),
-                )
-                current_color = rgb_image[y, x]
-
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < width and 0 <= ny < height and segmented[ny, nx] == 0:
-                        neighbor_3d = image_to_camera_coordinates(
-                            nx,
-                            ny,
-                            singleView["depth_img"][round(ny), round(nx)],
-                            camera_intrinsic(model),
-                        )
-                        neighbor_color = rgb_image[ny, nx]
-
-                        depth_diff = distance_3d(current_3d, neighbor_3d, singleView)
-                        color_diff = np.linalg.norm(
-                            current_color.astype(float) - neighbor_color.astype(float)
-                        )
-
-                        if (
-                            depth_diff <= tolerance_depth
-                            and color_diff <= tolerance_color
-                        ):
-                            stack.append((nx, ny))
-                            segmented[ny, nx] = (
-                                255  # Mark the pixel as segmented immediately
-                            )
-
-            return segmented
-
         processor = DenseProcessor(
             cam_intrinsic=[
                 CAMERA_WIDTH / 2,
@@ -215,16 +63,19 @@ def processView(
             depth=singleView["depth_img"],
         )
 
+        debug_images = []
+        measurements = []
         for object in singleView["objects"]:
-            choose_mask = createChooseMask(
-                singleView, (round(object[0]), round(object[1])), model
+            choose_mask = PointEstimation.region_growing(
+                singleView["depth_img"],
+                singleView["rgb_img"],
+                singleView["camera_matrix"],
+                object[3],
+                model,
             )
-            result = np.where(
-                choose_mask[:, :, np.newaxis] == 255, singleView["rgb_img"], 0
+            debug_images.append(
+                np.where(choose_mask[:, :, np.newaxis] == 255, singleView["rgb_img"], 0)
             )
-            result_image = Image.fromarray(result.astype("uint8"))
-            Image.fromarray(choose_mask).show(title="Segmented Depth")
-            result_image.show(title="Segmented Result")
 
             camera_coordinates = processor.process_data(
                 bounded_box=object[3],
@@ -243,7 +94,10 @@ def processView(
                 np.dot(singleView["camera_matrix"]["rotation"], camera_coordinates[4:])
                 + singleView["camera_matrix"]["translation"]
             )
-            calculateAngle(
+            measurements.append(
+                np.array(np.array([world_coordinates[0], world_coordinates[1]]))
+            )
+            PointEstimation.calculateAngle(
                 camera_coordinates[:4], singleView["camera_matrix"]["rotation"]
             )
             if DEBUG_MODE:
@@ -252,10 +106,38 @@ def processView(
                     world_coordinates,
                     [random.random(), random.random(), random.random(), 1],
                 )
+        if DEBUG_MODE:
+            Util.display_images_horizontally(debug_images)
+        return measurements
 
-    through6dPose(singleView, model, scene, r)
+    measurements = through6dPose(singleView, model, scene, r)
+
+    # print(
+    #     PointEstimation.is_point_range_visible(
+    #         np.array([0, 2, 1.3]),
+    #         singleView["depth_img"],
+    #         PointEstimation.camera_intrinsic(model),
+    #         singleView["camera_matrix"],
+    #     )
+    # )
+
+    # print(
+    #     PointEstimation.is_point_visible(
+    #         np.array([0, 2, 0.3]),
+    #         singleView["rgb_img"],
+    #         singleView["depth_img"],
+    #         camera_intrinsic(model),
+    #         singleView["camera_matrix"],
+    #     )
+    # )
+    # createGeom(
+    #     scene,
+    #     [0, 2, 0.3],
+    #     [random.random(), random.random(), random.random(), 1],
+    # )
     mujoco.mj_step(model, data)
     viewer.sync()
+    return measurements
 
 
 def step_robot(
@@ -326,13 +208,13 @@ def step_robot(
         return
     dp.update_scene(data, "frontview")
     depth_img = dp.render()
-    depth_img[depth_img >= THRESHOLD] = 0
+    # depth_img[depth_img >= THRESHOLD] = 0
     if DEBUG_MODE:
         display_img = numpy2pil(rgb_img)
-        display_img.show()
         Image.fromarray(depth_img, mode="L").save(
             f"debug_images/depth_{current_step}.png"
         )
+        # Image.fromarray(depth_img, mode="L").show()
         Image.fromarray(rgb_img).save(f"debug_images/rgb_{current_step}.png")
 
     singleView = {
@@ -383,18 +265,62 @@ if __name__ == "__main__":
         viewer.sync()
 
         current_step = 0
+
+        filter = PhdFilter()
         while viewer.is_running():
-            x = input("Click s to step robot, click f to step through all: ")
+            x = input("Click s to step robot, click c to step through all: ")
             if x == "q" or x == "Q":
                 break
             if x == "s":
+                for i in range(1, 6):
+                    model.geom(f"geo{i}").rgba = [1, 1, 1, 1]
+                mujoco.mj_step(model, data)
+                viewer.sync()
                 singleView = step_robot(model, data, r, dr, current_step)
                 if singleView != []:
                     current_step += 1
-                    processView(singleView, model, viewer.user_scn, r)
+                    measurements = processView(singleView, model, viewer.user_scn, r)
+                    filter.run_filter(
+                        measurements,
+                        singleView["depth_img"],
+                        PointEstimation.camera_intrinsic(model),
+                        singleView["camera_matrix"],
+                    )
+                    for i in range(1, 6):
+                        model.geom(f"geo{i}").rgba = [1, 1, 1, 0.4]
+                    mujoco.mj_step(model, data)
+                    viewer.sync()
             if x == "c":
-                while current_step >= TOTAL_STEPS:
+                for i in range(1, 6):
+                    model.geom(f"geo{i}").rgba = [1, 1, 1, 1]
+                mujoco.mj_step(model, data)
+                viewer.sync()
+                while current_step < TOTAL_STEPS:
                     singleView = step_robot(model, data, r, dr, current_step)
                     if singleView != []:
                         current_step += 1
-                        processView(singleView, model, viewer.user_scn, r)
+                        measurements = processView(
+                            singleView, model, viewer.user_scn, r
+                        )
+                        filter.run_filter(
+                            measurements,
+                            singleView["depth_img"],
+                            PointEstimation.camera_intrinsic(model),
+                            singleView["camera_matrix"],
+                        )
+                for i in range(1, 6):
+                    model.geom(f"geo{i}").rgba = [1, 1, 1, 0.4]
+                mujoco.mj_step(model, data)
+                viewer.sync()
+            if x == "p":
+                results = filter.outputFilter()
+                estimatedResult = results[len(results) - 1]
+                print(estimatedResult)
+                for result in estimatedResult:
+                    createGeom(
+                        viewer.user_scn,
+                        [result[0], result[1], 1.5],
+                        [random.random(), random.random(), random.random(), 1],
+                    )
+                mujoco.mj_step(model, data)
+                viewer.sync()

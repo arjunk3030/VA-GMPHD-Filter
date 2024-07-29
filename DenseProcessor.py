@@ -155,7 +155,7 @@ class DenseProcessor:
 
             if DEBUG_MODE:
                 img_pil = Image.fromarray(np.uint8(img_masked))
-                img_pil.show()
+                # img_pil.show()
 
             # mask = ma.getmaskarray(ma.masked_not_equal(self.depth, 0))
             choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
@@ -219,8 +219,7 @@ class DenseProcessor:
 
             # Loop through each point in the cloud and call the pp function
             cloud_np = cloud.cpu().detach().numpy()
-            model.geom("geo3").rgba = [1, 1, 1, 0.6]
-            model.geom("geo4").rgba = [1, 1, 1, 0.4]
+            # model.geom("geo4").rgba = [1, 1, 1, 0.4]
             # for point in cloud_np:
             #     x, y, z = point
 

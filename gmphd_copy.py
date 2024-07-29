@@ -182,6 +182,37 @@ def thinning_and_displacement(v: GaussianMixture, p, F: np.ndarray, Q: np.ndarra
     return GaussianMixture(w, m, P)
 
 
+def just_displacement(v: GaussianMixture, F: np.ndarray, Q: np.ndarray):
+    """
+    For the given Gaussian mixture v, perform thinning with probability P and displacement with N(x; F @ x_prev, Q)
+    See https://ieeexplore.ieee.org/document/7202905 for details
+    """
+    m = []
+    P = []
+    for mean in v.m:
+        m.append(F @ mean)
+    for cov_matrix in v.P:
+        P.append(Q + F @ cov_matrix @ F.T)
+    return GaussianMixture(v.w, m, P)
+
+
+def spread_convariance(v: GaussianMixture, Q: np.ndarray):
+    w = []
+    m = []
+    P = []
+
+    for weight in v.w:
+        w.append(weight)
+
+    for mean in v.m:
+        m.append(mean)
+
+    for cov_matrix in v.P:
+        P.append(Q + cov_matrix)
+
+    return GaussianMixture(w, m, P)
+
+
 class GmphdFilter:
     def __init__(self, model: Dict[str, Any]):
         """
@@ -221,14 +252,14 @@ class GmphdFilter:
             birth_GM: The Gaussian Mixture of the birth intensity
         """
         # to do: dtype, copy, improve performance
-        self.p_s = model["p_s"]
-        self.F = model["F"]
+        # self.p_s = model["p_s"]
+        # self.F = model["F"]
         self.Q = model["Q"]
         self.w_spawn = model["w_spawn"]
         self.F_spawn = model["F_spawn"]
         self.d_spawn = model["d_spawn"]
         self.Q_spawn = model["Q_spawn"]
-        self.birth_GM = model["birth_GM"]
+        # self.birth_GM = model["birth_GM"]
         self.p_d = model["p_d"]
         self.H = model["H"]
         self.R = model["R"]
@@ -257,27 +288,38 @@ class GmphdFilter:
         Inputs:
         - v: Gaussian mixture of the previous step
         """
-        # v_pred = v_s + v_spawn +  v_new_born
-        birth_copy = self.birth_GM.copy()
         # targets that survived v_s:
-        v_s = thinning_and_displacement(v, self.p_s, self.F, self.Q)
-        # spawning targets
-        v_spawn = self.spawn_mixture(v)
+        v_s = spread_convariance(v, self.Q)
         # final phd of prediction
         return GaussianMixture(
-            v_s.w + v_spawn.w + birth_copy.w,
-            v_s.m + v_spawn.m + birth_copy.m,
-            v_s.P + v_spawn.P + birth_copy.P,
+            v_s.w,
+            v_s.m,
+            v_s.P,
         )
 
-    def correction(self, v: GaussianMixture, Z: List[np.ndarray]) -> GaussianMixture:
+    def correction(
+        self,
+        v: GaussianMixture,
+        visibilities,
+        Z: List[np.ndarray],
+    ) -> GaussianMixture:
         """
         Correction step of the GMPHD filter
         Inputs:
         - v: Gaussian mixture obtained from the prediction step
         - Z: Measurement set, containing set of observations
         """
-        v_residual = thinning_and_displacement(v, self.p_d, self.H, self.R)
+        v_residual = GaussianMixture([], [], [])
+        for i, (w, m, P) in enumerate(zip(v.w, v.m, v.P)):
+            if visibilities[i]:
+                v_residual.w.append(w * self.p_d)
+                v_residual.m.append(self.H @ m)
+                v_residual.P.append(self.R + self.H @ P @ self.H.T)
+            else:
+                v_residual.w.append(w)
+                v_residual.m.append(m)
+                v_residual.P.append(P)
+
         detP = get_matrices_determinants(v_residual.P)
         invP = get_matrices_inverses(v_residual.P)
         v_residual.set_covariance_determinant_and_inverse_list(detP, invP)
@@ -290,17 +332,31 @@ class GmphdFilter:
             P_kk.append(v.P[i] - k @ self.H @ v.P[i])
 
         v_copy = v.copy()
-        w = (np.array(v_copy.w) * (1 - self.p_d)).tolist()
+        w = []
+        for w_copy in v_copy.w:
+            if visibilities[i]:
+                w.append(w_copy * (1 - self.p_d))
+            else:
+                w.append(w_copy)
+
         m = v_copy.m
         P = v_copy.P
 
         for z in Z:
             values = v_residual.mixture_component_values_list(z)
             normalization_factor = np.sum(values) + self.clutter_density_func(z)
+            m_weight = 0
             for i in range(len(v_residual.w)):
+                if values[i] > m_weight:
+                    m_weight = values[i]
                 w.append(values[i] / normalization_factor)
+                print(f"Added a thing of {values[i]}")
                 m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
                 P.append(P_kk[i].copy())
+            if m_weight < 0.3:
+                w.append(0.5)
+                m.append(np.array([z[0], z[1]]))
+                P.append(np.diag([0.3, 0.3]))
         return GaussianMixture(w, m, P)
 
     def pruning(self, v: GaussianMixture) -> GaussianMixture:
@@ -327,7 +383,7 @@ class GmphdFilter:
             L = []
             for i in I:
                 x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
-                if (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) <= self.U:
+                if x <= self.U:
                     L.append(i)
             w_new = np.sum(vw[L])
             m_new = np.sum((vw[L] * vm[L].T).T, axis=0) / w_new
@@ -354,23 +410,4 @@ class GmphdFilter:
             if v.w[i] >= 0.5:
                 # for j in range(int(np.round(v.w[i]))):
                 X.append(v.m[i])
-        return X
-
-    def filter_data(self, Z: List[List[np.ndarray]]) -> List[List[np.ndarray]]:
-        """
-        Given the list of collections of measurements for each time step, perform filtering and return the
-        estimated sets of tracks for each step.
-
-        :param Z: list of observations(measurements) for each time step
-        :return X:
-        list of estimated track sets for each time step
-        """
-        X = []
-        v = GaussianMixture([], [], [])
-        for z in Z:
-            v = self.prediction(v)
-            v = self.correction(v, z)
-            v = self.pruning(v)
-            x = self.state_estimation(v)
-            X.append(x)
         return X
