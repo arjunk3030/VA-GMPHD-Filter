@@ -3,7 +3,35 @@ import numpy as np
 from Constants import CAMERA_HEIGHT, CAMERA_WIDTH
 from scipy.spatial.transform import Rotation as R
 import mujoco
-from sklearn.linear_model import RANSACRegressor
+import Constants
+
+
+def compute_rotation_matrix(r):
+    camera = r.scene.camera[1]
+    # camera_right = np.cross(camera.up, camera.forward)
+    # return np.column_stack((camera_right, camera.up, camera.forward))
+    forward = np.array(camera.forward, dtype=float)
+    up = np.array(camera.up, dtype=float)
+
+    # Calculate right vector
+    right = np.cross(-up, forward)
+
+    # # Recalculate up vector to ensure orthogonality
+    # up = np.cross(forward, right)
+
+    # Construct 3x3 rotation matrix
+    rotation_matrix = np.column_stack((right, -up, forward))
+
+    return rotation_matrix
+
+
+def compute_translation_matrix(r):
+    cameras = r.scene.camera
+
+    positions = np.array([np.array(camera.pos) for camera in cameras])
+    avg_position = np.mean(positions, axis=0)
+
+    return avg_position.tolist()
 
 
 def camera_intrinsic(model):
@@ -85,7 +113,6 @@ def calculateAngle(q, rotation):
     new_rot = np.dot(rotation, quaternion_to_rotation_matrix(q))
     new_quat = R.from_matrix(new_rot).as_quat()
     new_quat = [new_quat[3], new_quat[0], new_quat[1], new_quat[2]]
-    print("World-view-based quaternion:", new_quat)
     print("Euler degrees: ", np.degrees(rotation_matrix_to_euler(new_rot)))
 
 
@@ -100,13 +127,22 @@ def distance_3d(point1, point2, camera_matrix):
     return np.linalg.norm(point1_world - point2_world)
 
 
+def near_ground(z):
+    threshold = 0.003
+    if abs(abs(z) - Constants.FLOOR_HEIGHT) < threshold:
+        return True
+    if abs(z) < threshold:
+        return True
+    return False
+
+
 def createChooseMask(
     depth_image,
     rgbImage,
     camera_matrix,
     seed,
     model,
-    tolerance_depth=0.05,
+    tolerance_depth=0.02,
     tolerance_color=100,
 ):
     rgb_image = np.array(rgbImage)
@@ -124,7 +160,7 @@ def createChooseMask(
         world_3d = camera_to_world(camera_matrix, current_3d)
 
         # Skip points near the ground plane
-        if abs(world_3d[2]) < 0.01:
+        if near_ground(world_3d[2]):
             continue
 
         current_color = rgb_image[y, x]
@@ -138,7 +174,7 @@ def createChooseMask(
                 world_3d_neighbor = camera_to_world(camera_matrix, neighbor_3d)
 
                 # Skip points near the ground plane
-                if abs(world_3d_neighbor[2]) < 0.01:
+                if near_ground(world_3d_neighbor[2]):
                     continue
 
                 neighbor_color = rgb_image[ny, nx]
@@ -197,87 +233,3 @@ def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, model):
 
 def is_in_image(x, y, width, height):
     return 0 <= x < width and 0 <= y < height
-
-
-def is_point_visible(
-    point_world, rgb_image, depth_image, intrinsics, extrinsics, depth_scale=1
-):
-    point_camera = world_to_camera(extrinsics, point_world)
-
-    if point_camera[2] <= 0:
-        return False
-
-    x, y = camera_to_image(
-        point_camera[0], point_camera[1], point_camera[2], intrinsics
-    )
-
-    height, width = depth_image.shape
-    if 0 <= x < width and 0 <= y < height:
-        image_depth = depth_image[y, x] / depth_scale
-
-        if image_depth == 0:
-            return True
-
-        if point_camera[2] <= image_depth:
-            return True
-
-    return False
-
-
-def is_point_range_visible(
-    point_world,
-    depth_image,
-    intrinsics,
-    extrinsics,
-    radius=1.0,
-    base_num_rays=100,
-):
-    def generate_ray_directions(num_rays):
-        directions = []
-        for _ in range(num_rays):
-            phi = np.random.uniform(0, np.pi)
-            theta = np.random.uniform(0, 2 * np.pi)
-            x = np.sin(phi) * np.cos(theta)
-            y = np.sin(phi) * np.sin(theta)
-            z = np.cos(phi)
-            directions.append(np.array([x, y, z]))
-        return directions
-
-    point_camera = world_to_camera(extrinsics, point_world)
-
-    if point_camera[2] <= 0:
-        return False
-
-    height, width = depth_image.shape
-
-    if radius == 0:
-        test_points_camera = [point_camera]
-    else:
-        num_rays = int(np.ceil(radius * base_num_rays))
-
-        ray_directions = generate_ray_directions(num_rays)
-
-        test_points_camera = [
-            point_camera + direction * radius for direction in ray_directions
-        ]
-
-    for direction in test_points_camera:
-        test_point_camera = point_camera + direction * radius
-
-        if test_point_camera[2] <= 0:
-            continue
-
-        x, y = camera_to_image(
-            test_point_camera[0], test_point_camera[1], test_point_camera[2], intrinsics
-        )
-
-        if 0 <= x < width and 0 <= y < height:
-            image_depth = depth_image[y, x]
-
-            if image_depth == 0:
-                return True
-
-            if test_point_camera[2] <= image_depth:
-                return True
-
-    return False

@@ -5,6 +5,8 @@ from Constants import (
     CAMERA_WIDTH,
     DEBUG_MODE,
     DURATION_IN_SECONDS,
+    MUJOCO_TO_POSE,
+    OBJECTS,
     THRESHOLD,
     TOTAL_STEPS,
 )
@@ -29,6 +31,9 @@ from scipy.spatial.transform import Rotation as R
 import ssl
 import PointEstimation
 import Util
+import PHDFilterCalculations
+from ultralytics import YOLO
+import torch
 
 ssl._create_default_https_context = ssl._create_stdlib_context
 
@@ -38,7 +43,7 @@ def createGeom(scene: mujoco.MjvScene, location, rgba_given):
     mujoco.mjv_initGeom(
         scene.geoms[scene.ngeom - 1],
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
-        size=[0.03, 0.03, 0.03],
+        size=[0.0075, 0.0075, 0.0075],
         pos=np.array([location[0], location[1], location[2]]),
         mat=np.eye(3).flatten(),
         rgba=rgba_given,
@@ -58,13 +63,14 @@ def processView(
                 / math.tan(model.vis.global_.fovy * math.pi / 360),
                 0.5 * CAMERA_HEIGHT / math.tan(model.vis.global_.fovy * math.pi / 360),
             ],
-            model_config=[10000, 21, CAMERA_HEIGHT, CAMERA_WIDTH],
+            model_config=[10000, 21, CAMERA_WIDTH, CAMERA_HEIGHT],
             rgb=singleView["rgb_img"],
             depth=singleView["depth_img"],
         )
 
         debug_images = []
-        measurements = []
+        observed_means = []
+        observed_cls = []
         for object in singleView["objects"]:
             choose_mask = PointEstimation.region_growing(
                 singleView["depth_img"],
@@ -94,26 +100,28 @@ def processView(
                 np.dot(singleView["camera_matrix"]["rotation"], camera_coordinates[4:])
                 + singleView["camera_matrix"]["translation"]
             )
-            measurements.append(
-                np.array(np.array([world_coordinates[0], world_coordinates[1]]))
+            observed_means.append(
+                np.array([world_coordinates[0], world_coordinates[1]])
             )
+            observed_cls.append(object[4])
             PointEstimation.calculateAngle(
                 camera_coordinates[:4], singleView["camera_matrix"]["rotation"]
             )
             if DEBUG_MODE:
-                createGeom(
-                    scene,
-                    world_coordinates,
-                    [random.random(), random.random(), random.random(), 1],
-                )
+                print(world_coordinates)
+                # createGeom(
+                #     scene,
+                #     world_coordinates,
+                #     [random.random(), random.random(), random.random(), 1],
+                # )
         if DEBUG_MODE:
             Util.display_images_horizontally(debug_images)
-        return measurements
+        return observed_means, observed_cls
 
-    measurements = through6dPose(singleView, model, scene, r)
+    return through6dPose(singleView, model, scene, r)
 
     # print(
-    #     PointEstimation.is_point_range_visible(
+    #     PHDFilterCalculation.is_point_range_visible(
     #         np.array([0, 2, 1.3]),
     #         singleView["depth_img"],
     #         PointEstimation.camera_intrinsic(model),
@@ -135,9 +143,6 @@ def processView(
     #     [0, 2, 0.3],
     #     [random.random(), random.random(), random.random(), 1],
     # )
-    mujoco.mj_step(model, data)
-    viewer.sync()
-    return measurements
 
 
 def step_robot(
@@ -146,6 +151,7 @@ def step_robot(
     r: mujoco.Renderer,
     dp: mujoco.Renderer,
     current_step: int,
+    objectDetectionModel,
 ):
     def numpy2pil(np_array: np.ndarray) -> Image:
         assert_msg = "Input shall be a HxWx3 ndarray"
@@ -155,28 +161,6 @@ def step_robot(
 
         img = Image.fromarray(np_array, "RGB")
         return img
-
-    def compute_rotation_matrix(r):
-        camera = r.scene.camera[1]
-        # camera_right = np.cross(camera.up, camera.forward)
-        # return np.column_stack((camera_right, camera.up, camera.forward))
-        forward = np.array(camera.forward, dtype=float)
-        up = np.array(camera.up, dtype=float)
-
-        # Calculate right vector
-        right = np.cross(-up, forward)
-
-        # # Recalculate up vector to ensure orthogonality
-        # up = np.cross(forward, right)
-
-        # Construct 3x3 rotation matrix
-        rotation_matrix = np.column_stack((right, -up, forward))
-
-        return rotation_matrix
-
-    def compute_translation_matrix(r):
-        camera = r.scene.camera[1]
-        return list(camera.pos)
 
     def calculate_control_signal(current_positions, desired_positions, kp=180.0):
         error = desired_positions - current_positions
@@ -200,15 +184,25 @@ def step_robot(
     if not viewer.is_running:
         return
 
+    for i in range(update_interval):
+        desired_position = spline(t[current_step * update_interval + i])
+        current_positions = np.array([data.qpos[0], data.qpos[1]])
+        control_signals = calculate_control_signal(current_positions, desired_position)
+        data.ctrl[:2] = control_signals
+
+        mujoco.mj_step(model, data)
+        viewer.sync()
+
     r.update_scene(data, "frontview")
     rgb_img = r.render()
+
     mujoco.mj_forward(model, data)
     if np.all(rgb_img == 0):
         logging.error("Image contains no objects")
         return
     dp.update_scene(data, "frontview")
     depth_img = dp.render()
-    # depth_img[depth_img >= THRESHOLD] = 0
+    depth_img[depth_img >= THRESHOLD] = 0
     if DEBUG_MODE:
         display_img = numpy2pil(rgb_img)
         Image.fromarray(depth_img, mode="L").save(
@@ -221,29 +215,38 @@ def step_robot(
         "step": current_step,
         "depth_img": depth_img,
         "camera_matrix": {
-            "rotation": compute_rotation_matrix(r),
-            "translation": compute_translation_matrix(r),
+            "rotation": PointEstimation.compute_rotation_matrix(r),
+            "translation": PointEstimation.compute_translation_matrix(r),
         },
     }
 
-    for i in range(update_interval):
-        desired_position = spline(t[current_step * update_interval + i])
-        current_positions = np.array([data.qpos[0], data.qpos[1]])
-        control_signals = calculate_control_signal(current_positions, desired_position)
-        data.ctrl[:2] = control_signals
+    return detect_objects(rgb_img, singleView, objectDetectionModel)
 
-        mujoco.mj_step(model, data)
-        viewer.sync()
 
-    return detect_objects(rgb_img, singleView)
+def stateUpdates(model, scene, data):
+    ground_truth = []
+    for geom in OBJECTS:
+        model.geom(geom[0]).pos += MUJOCO_TO_POSE[geom[1]]
+        ground_truth.append(
+            [
+                geom[1],
+                round(model.geom(geom[0]).pos[0], 3),
+                round(model.geom(geom[0]).pos[1], 3),
+            ]
+        )
+
+    mujoco.mj_step(model, data)
+    return ground_truth
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Set up Mujoco model
-    model = mujoco.MjModel.from_xml_path("google_robot/robot_scene.xml", dict())
+    model = mujoco.MjModel.from_xml_path("google_robot/EXP1_scene.xml", dict())
     data = mujoco.MjData(model)
+    # state updates
+
     dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
     dr.enable_depth_rendering()
     dr.update_scene(data)
@@ -256,7 +259,15 @@ if __name__ == "__main__":
     target_birth_time = []
     targets_start = []
 
+    objectDetectionModel = torch.hub.load(
+        "ultralytics/yolov5", "custom", path="yolo-for-ycb/best.pt"
+    )
+
     with mujoco.viewer.launch_passive(model, data) as viewer:
+        ground_truth = stateUpdates(model, viewer.user_scn, data)
+        ground_truth.sort(key=lambda x: x[0])
+        print(ground_truth)
+        filter = PhdFilter(ground_truth)
         scene_option = mujoco.MjvOption()
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
         scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = True
@@ -266,60 +277,61 @@ if __name__ == "__main__":
 
         current_step = 0
 
-        filter = PhdFilter()
         while viewer.is_running():
             x = input("Click s to step robot, click c to step through all: ")
             if x == "q" or x == "Q":
                 break
             if x == "s":
-                for i in range(1, 6):
-                    model.geom(f"geo{i}").rgba = [1, 1, 1, 1]
+                for geom in OBJECTS:
+                    model.geom(geom[0]).rgba = [1, 1, 1, 1]
                 mujoco.mj_step(model, data)
                 viewer.sync()
-                singleView = step_robot(model, data, r, dr, current_step)
+                singleView = step_robot(
+                    model, data, r, dr, current_step, objectDetectionModel
+                )
                 if singleView != []:
-                    current_step += 1
-                    measurements = processView(singleView, model, viewer.user_scn, r)
-                    filter.run_filter(
-                        measurements,
-                        singleView["depth_img"],
-                        PointEstimation.camera_intrinsic(model),
-                        singleView["camera_matrix"],
+                    observed_means, observed_cls = processView(
+                        singleView, model, viewer.user_scn, r
                     )
-                    for i in range(1, 6):
-                        model.geom(f"geo{i}").rgba = [1, 1, 1, 0.4]
+                    current_step += 1
+                    print(f"BODY POS {model.body("base_link").pos}")
+                    filter.run_filter(
+                        data.qpos.copy(),
+                        observed_means,
+                        observed_cls,
+                    )
+                    for geom in OBJECTS:
+                        model.geom(geom[0]).rgba = [1, 1, 1, 0.4]
                     mujoco.mj_step(model, data)
                     viewer.sync()
             if x == "c":
-                for i in range(1, 6):
-                    model.geom(f"geo{i}").rgba = [1, 1, 1, 1]
+                for geom in OBJECTS:
+                    model.geom(geom[0]).rgba = [1, 1, 1, 1]
                 mujoco.mj_step(model, data)
                 viewer.sync()
                 while current_step < TOTAL_STEPS:
-                    singleView = step_robot(model, data, r, dr, current_step)
+                    singleView = step_robot(
+                        model, data, r, dr, current_step, objectDetectionModel
+                    )
                     if singleView != []:
-                        current_step += 1
-                        measurements = processView(
+                        observed_means, observed_cls = processView(
                             singleView, model, viewer.user_scn, r
                         )
+                        current_step += 1
                         filter.run_filter(
-                            measurements,
-                            singleView["depth_img"],
-                            PointEstimation.camera_intrinsic(model),
-                            singleView["camera_matrix"],
+                            data.qpos.copy(), observed_means, observed_cls
                         )
-                for i in range(1, 6):
-                    model.geom(f"geo{i}").rgba = [1, 1, 1, 0.4]
+                for geom in OBJECTS:
+                    model.geom(geom[0]).rgba = [1, 1, 1, 0.4]
                 mujoco.mj_step(model, data)
                 viewer.sync()
             if x == "p":
                 results = filter.outputFilter()
-                estimatedResult = results[len(results) - 1]
-                print(estimatedResult)
-                for result in estimatedResult:
+                for result in results:
+                    print(result)
                     createGeom(
                         viewer.user_scn,
-                        [result[0], result[1], 1.5],
+                        [result[0], result[1], 0.95],
                         [random.random(), random.random(), random.random(), 1],
                     )
                 mujoco.mj_step(model, data)

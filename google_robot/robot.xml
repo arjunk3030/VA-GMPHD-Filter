@@ -1,5 +1,5 @@
-<mujoco model="robot scene">
-  <include file="object_sets/ycb_objects.xml"/>
+<mujoco model="robot">
+  <include file="object_sets/ycb_assets.xml" />
   <statistic center="0 0 0.8" extent="2"/>  
   <compiler angle="radian" assetdir="assets" autolimits="true"/>
 
@@ -9,11 +9,10 @@
     <texture type="2d" name="robot_texture" file="robot_texture.png"/>
     <texture type="2d" name="finger_base_texture" file="finger_base_texture.png"/>
     <texture type="2d" name="finger_tip_texture" file="finger_tip_texture.png"/>
-    <texture builtin="checker" height="100" name="texplane" rgb1="0.451 0.235 0.059" rgb2="0.451 0.235 0.059" type="2d" width="100"/>
     <material name="robot_mtl" texture="robot_texture"/>
     <material name="finger_base_mtl" texture="finger_base_texture"/>
     <material name="finger_tip_mtl" texture="finger_tip_texture"/>
-    <material name="floorplane" reflectance="0.0" texrepeat="1 1" texuniform="true" texture="texplane"/>
+
     <!-- Collision meshes -->
     <mesh file="robot_links/link_base_0_00.stl"/>
     <mesh file="robot_links/link_base_0_01.stl"/>
@@ -84,14 +83,13 @@
     </default>
   </default>
   <worldbody>
+  	<!-- <geom name="floor" pos="0 0 0" size="5 5 0.125" type="plane" condim="3" material="floorplane"></geom> -->
+	<light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"></light>
 
-  	<geom name="floor0" pos="0 0 0" size="5 5 0.125" type="plane" condim="3" material="floorplane"></geom>
-		<light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"></light>
-
-    <body name="base_link" childclass="robot" pos="0 -1.9 0.06205">
+    <body name="base_link" childclass="robot" pos="0 -0.475 0.06205">
       <site name="imu1" rgba="0. 1. 0. .4"/>
 
-      <camera name="frontview" pos="0 0 0.5" mode="targetbodycom"  target="objects" xyaxes="1 0 0 0 1 2"/>
+      <camera name="frontview" pos="0 0 0.885" mode="targetbodycom"  target="objects" xyaxes="1 0 0 0 1 2"/>
       <inertial diaginertia="1.2869 1.2236 0.9868" mass="70.1294" pos="-0.0036 0 0.0014" quat="0.7605 -0.0133 -0.0061 0.6491"></inertial>
 
       <joint name="base_x_slide_joint" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-100 100" damping="15000"/>

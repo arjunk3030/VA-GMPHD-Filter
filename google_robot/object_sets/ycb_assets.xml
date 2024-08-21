@@ -1,0 +1,43 @@
+<mujoco model="ycb_assets">
+    <asset>    
+        <mesh file="YCB_objects/003_cracker_box.obj" scale="1 1 1"/>
+        <texture type="2d" name="003_texture" file="YCB_objects/textures/003_texture.png"/>
+        <material name="003_mtl" texture="003_texture"/>
+
+        <mesh file="YCB_objects/005_tomato_soup_can.obj" scale="1 1 1"/>
+        <texture type="2d" name="005_texture" file="YCB_objects/textures/005_texture.png"/>
+        <material name="005_mtl" texture="005_texture"/>
+
+
+        <mesh file="YCB_objects/006_mustard_bottle.obj" scale="1 1 1"/>
+        <texture type="2d" name="006_texture" file="YCB_objects/textures/006_texture.png"/>
+        <material name="006_mtl" texture="006_texture"/>
+
+        <mesh file="YCB_objects/010_potted_meat_can.obj" scale="1 1 1"/>
+        <texture type="2d" name="010_texture" file="YCB_objects/textures/010_texture.png"/>
+        <material name="010_mtl" texture="010_texture"/>
+
+
+        <mesh file="YCB_objects/024_bowl.obj" scale="1 1 1"/>
+        <texture type="2d" name="024_texture" file="YCB_objects/textures/024_texture.png"/>
+        <material name="024_mtl" texture="024_texture"/>
+
+
+        <mesh file="YCB_objects/025_mug.obj" scale="1 1 1"/>
+        <texture type="2d" name="025_texture" file="YCB_objects/textures/025_texture.png"/>
+        <material name="025_mtl" texture="025_texture"/>
+
+        <mesh file="YCB_objects/035_power_drill.obj" scale="1 1 1"/>
+        <texture type="2d" name="035_texture" file="YCB_objects/textures/035_texture.png"/>
+        <material name="035_mtl" texture="035_texture"/>
+
+        <mesh file="YCB_objects/036_wood_block.obj" scale="1 1 1"/>
+        <texture type="2d" name="036_texture" file="YCB_objects/textures/036_texture.png"/>
+        <material name="036_mtl" texture="036_texture"/>
+
+
+        <mesh file="YCB_objects/077_rubiks_cube.obj" scale="1 1 1"/>
+        <texture type="2d" name="077_texture" file="YCB_objects/textures/077_texture.png"/>
+        <material name="077_mtl" texture="077_texture"/>
+    </asset>
+</mujoco>

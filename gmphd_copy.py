@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.linalg as lin
 from typing import List, Dict, Any
+import Constants
 
 
 def multivariate_gaussian(x: np.ndarray, m: np.ndarray, P: np.ndarray) -> float:
@@ -57,7 +58,13 @@ def clutter_intensity_function(z: np.ndarray, lc: int, surveillance_region: np.n
 
 
 class GaussianMixture:
-    def __init__(self, w: List[np.float64], m: List[np.ndarray], P: List[np.ndarray]):
+    def __init__(
+        self,
+        w: List[np.float64],
+        m: List[np.ndarray],
+        P: List[np.ndarray],
+        cls: List[np.ndarray],
+    ):
         """
         The Gaussian mixture class
 
@@ -72,6 +79,7 @@ class GaussianMixture:
         self.w = w
         self.m = m
         self.P = P
+        self.cls = cls
         self.detP = None
         self.invP = None
 
@@ -140,17 +148,18 @@ class GaussianMixture:
         w = self.w.copy()
         m = []
         P = []
+        cls = self.cls.copy()
         for m1 in self.m:
             m.append(m1.copy())
         for P1 in self.P:
             P.append(P1.copy())
-        return GaussianMixture(w, m, P)
+        return GaussianMixture(w, m, P, cls)
 
 
 def get_matrices_inverses(P_list: List[np.ndarray]) -> List[np.ndarray]:
     inverse_P_list = []
     for P in P_list:
-        inverse_P_list.append(lin.inv(P))
+        inverse_P_list.append(np.linalg.inv(P))
     return inverse_P_list
 
 
@@ -179,7 +188,7 @@ def thinning_and_displacement(v: GaussianMixture, p, F: np.ndarray, Q: np.ndarra
         m.append(F @ mean)
     for cov_matrix in v.P:
         P.append(Q + F @ cov_matrix @ F.T)
-    return GaussianMixture(w, m, P)
+    return GaussianMixture(w, m, P, v.cls)
 
 
 def just_displacement(v: GaussianMixture, F: np.ndarray, Q: np.ndarray):
@@ -193,7 +202,7 @@ def just_displacement(v: GaussianMixture, F: np.ndarray, Q: np.ndarray):
         m.append(F @ mean)
     for cov_matrix in v.P:
         P.append(Q + F @ cov_matrix @ F.T)
-    return GaussianMixture(v.w, m, P)
+    return GaussianMixture(v.w, m, P, v.cls)
 
 
 def spread_convariance(v: GaussianMixture, Q: np.ndarray):
@@ -210,7 +219,7 @@ def spread_convariance(v: GaussianMixture, Q: np.ndarray):
     for cov_matrix in v.P:
         P.append(Q + cov_matrix)
 
-    return GaussianMixture(w, m, P)
+    return GaussianMixture(w, m, P, v.cls)
 
 
 class GmphdFilter:
@@ -251,14 +260,10 @@ class GmphdFilter:
 
             birth_GM: The Gaussian Mixture of the birth intensity
         """
-        # to do: dtype, copy, improve performance
-        # self.p_s = model["p_s"]
-        # self.F = model["F"]
         self.Q = model["Q"]
-        self.w_spawn = model["w_spawn"]
-        self.F_spawn = model["F_spawn"]
-        self.d_spawn = model["d_spawn"]
-        self.Q_spawn = model["Q_spawn"]
+        self.nObj = model["nObj"]
+        self.birth_w = model["birth_w"]
+        self.birth_P = model["birth_P"]
         # self.birth_GM = model["birth_GM"]
         self.p_d = model["p_d"]
         self.H = model["H"]
@@ -266,21 +271,29 @@ class GmphdFilter:
         self.clutter_density_func = model["clutt_int_fun"]
         self.T = model["T"]
         self.U = model["U"]
+        self.A = model["A"]
+        self.alpha = model["alpha"]
         self.Jmax = model["Jmax"]
 
-    def spawn_mixture(self, v: GaussianMixture) -> GaussianMixture:
-        """
-        Spawning targets in prediction step
-        """
-        w = []
-        m = []
-        P = []
-        for i, w_v in enumerate(v.w):
-            for j, w_spawn in enumerate(self.w_spawn):
-                w.append(w_v * w_spawn)
-                m.append(self.F_spawn[j] @ v.m[i] + self.d_spawn[j])
-                P.append(self.Q_spawn[j] + self.F_spawn[j] @ v.P[i] @ self.F_spawn[j].T)
-        return GaussianMixture(w, m, P)
+    def cosine_similarity(self, xc, yc):
+        xc = np.array(xc)
+        yc = np.array(yc)
+
+        dot_product = np.dot(xc, yc)
+        magnitudex = np.linalg.norm(xc)
+        magnitudey = np.linalg.norm(yc)
+
+        similarity = dot_product / (magnitudex * magnitudey)
+
+        return similarity
+
+    def generate_smoothed_cls(self, cls):
+        total_count = sum(cls)
+        smoothed_cls = [
+            (count + self.alpha) / (total_count + self.alpha * len(cls))
+            for count in cls
+        ]
+        return smoothed_cls
 
     def prediction(self, v: GaussianMixture) -> GaussianMixture:
         """
@@ -291,17 +304,10 @@ class GmphdFilter:
         # targets that survived v_s:
         v_s = spread_convariance(v, self.Q)
         # final phd of prediction
-        return GaussianMixture(
-            v_s.w,
-            v_s.m,
-            v_s.P,
-        )
+        return GaussianMixture(v_s.w, v_s.m, v_s.P, v.cls)
 
     def correction(
-        self,
-        v: GaussianMixture,
-        visibilities,
-        Z: List[np.ndarray],
+        self, v: GaussianMixture, p_v, Z: List[np.ndarray], Zcls
     ) -> GaussianMixture:
         """
         Correction step of the GMPHD filter
@@ -309,16 +315,12 @@ class GmphdFilter:
         - v: Gaussian mixture obtained from the prediction step
         - Z: Measurement set, containing set of observations
         """
-        v_residual = GaussianMixture([], [], [])
+
+        v_residual = GaussianMixture([], [], [], v.cls)
         for i, (w, m, P) in enumerate(zip(v.w, v.m, v.P)):
-            if visibilities[i]:
-                v_residual.w.append(w * self.p_d)
-                v_residual.m.append(self.H @ m)
-                v_residual.P.append(self.R + self.H @ P @ self.H.T)
-            else:
-                v_residual.w.append(w)
-                v_residual.m.append(m)
-                v_residual.P.append(P)
+            v_residual.w.append(p_v[i] * w * self.p_d)
+            v_residual.m.append(self.H @ m)
+            v_residual.P.append(self.R + self.H @ P @ self.H.T)
 
         detP = get_matrices_determinants(v_residual.P)
         invP = get_matrices_inverses(v_residual.P)
@@ -332,32 +334,51 @@ class GmphdFilter:
             P_kk.append(v.P[i] - k @ self.H @ v.P[i])
 
         v_copy = v.copy()
-        w = []
-        for w_copy in v_copy.w:
-            if visibilities[i]:
-                w.append(w_copy * (1 - self.p_d))
-            else:
-                w.append(w_copy)
 
-        m = v_copy.m
-        P = v_copy.P
+        w_visible = [
+            weight * probability * (1 - self.p_d)
+            for weight, probability in zip(v_copy.w, p_v)
+        ]
+        w_not_visible = [
+            weight * (1 - probability) for weight, probability in zip(v_copy.w, p_v)
+        ]
+        w = w_visible + w_not_visible
+        m = v_copy.m + v_copy.m
+        P = v_copy.P + v_copy.P
+        cls = v_copy.cls + v_copy.cls
 
-        for z in Z:
+        for z, z_cls in zip(Z, Zcls):
             values = v_residual.mixture_component_values_list(z)
             normalization_factor = np.sum(values) + self.clutter_density_func(z)
+            observation_cls = [0] * self.nObj
+            observation_cls[z_cls] += 1
+            observation_cls = self.generate_smoothed_cls(observation_cls)
             m_weight = 0
             for i in range(len(v_residual.w)):
                 if values[i] > m_weight:
                     m_weight = values[i]
-                w.append(values[i] / normalization_factor)
-                print(f"Added a thing of {values[i]}")
+                p_c = self.cosine_similarity(observation_cls, v_residual.cls[i])
+                w.append(p_c * values[i] / normalization_factor)
                 m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
                 P.append(P_kk[i].copy())
-            if m_weight < 0.3:
-                w.append(0.5)
+                # new_cls = [
+                #     (current + K[i] * obs) / (1 + K[i])
+                #     for current, obs in zip(v_residual.cls[i], observation_cls)
+                # ]
+                new_cls = [
+                    current + obs
+                    for current, obs in zip(v_residual.cls[i], observation_cls)
+                ]
+                total = sum(new_cls)
+                new_cls = [x / total for x in new_cls]
+
+                cls.append(new_cls)
+            if m_weight < self.A:
+                w.append(self.birth_w)
                 m.append(np.array([z[0], z[1]]))
-                P.append(np.diag([0.3, 0.3]))
-        return GaussianMixture(w, m, P)
+                P.append(self.birth_P)
+                cls.append(observation_cls)
+        return GaussianMixture(w, m, P, cls)
 
     def pruning(self, v: GaussianMixture) -> GaussianMixture:
         """
@@ -367,14 +388,20 @@ class GmphdFilter:
         w = [v.w[i] for i in I]
         m = [v.m[i] for i in I]
         P = [v.P[i] for i in I]
-        v = GaussianMixture(w, m, P)
+        cls = [v.cls[i] for i in I]
+        v = GaussianMixture(w, m, P, cls)
+
         I = (np.array(v.w) > self.T).nonzero()[0].tolist()
         invP = get_matrices_inverses(v.P)
         vw = np.array(v.w)
         vm = np.array(v.m)
+        vcls = np.array(v.cls)
+
         w = []
         m = []
         P = []
+        cls = []
+
         while len(I) > 0:
             j = I[0]
             for i in I:
@@ -385,15 +412,25 @@ class GmphdFilter:
                 x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
                 if x <= self.U:
                     L.append(i)
+
             w_new = np.sum(vw[L])
             m_new = np.sum((vw[L] * vm[L].T).T, axis=0) / w_new
             P_new = np.zeros((m_new.shape[0], m_new.shape[0]))
+            cls_weighted_sum = np.zeros(len(vcls[L][0]))
+            for i in L:
+                cls_weighted_sum += vw[i] * np.array(vcls[i])
+            w_new = np.sum(vw[L])
+            cls_new = (cls_weighted_sum / w_new).tolist()
             for i in L:
                 P_new += vw[i] * (v.P[i] + np.outer(m_new - vm[i], m_new - vm[i]))
+                # for k in range(self.nObj):
+                #     cls_new[k] += vcls[i][k]
+
             P_new /= w_new
             w.append(w_new)
             m.append(m_new)
             P.append(P_new)
+            cls.append(cls_new)
             I = [i for i in I if i not in L]
 
         if len(w) > self.Jmax:
@@ -401,13 +438,19 @@ class GmphdFilter:
             w = [w[i] for i in L]
             m = [m[i] for i in L]
             P = [P[i] for i in L]
+            cls = [cls[i] for i in L]
 
-        return GaussianMixture(w, m, P)
+        return GaussianMixture(w, m, P, cls)
 
     def state_estimation(self, v: GaussianMixture) -> List[np.ndarray]:
         X = []
+        Xc = []
+        # TODO: take arg max
         for i in range(len(v.w)):
             if v.w[i] >= 0.5:
-                # for j in range(int(np.round(v.w[i]))):
+                max_value = max(v.cls[i])
                 X.append(v.m[i])
-        return X
+                Xc.append(
+                    v.cls[i].index(max_value),
+                )
+        return X, Xc

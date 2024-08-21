@@ -22,15 +22,11 @@ import os
 import mujoco
 import mujoco.viewer as viewer
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "segsem"))
-from segsem.test import run_test
-# Our file
-
 
 class DenseProcessor:
     def __init__(self, cam_intrinsic, model_config, rgb, depth):
         (self.cam_cx, self.cam_cy, self.cam_fx, self.cam_fy) = cam_intrinsic
-        self.cam_scale = 4
+        self.cam_scale = 1
         # np_image = np.array(rgb)
         # float_image = np_image.astype(np.float32)
         self.img = rgb
@@ -43,26 +39,6 @@ class DenseProcessor:
         ) = model_config
         self.bs = 1
         self.iteration = 2
-        self.border_list = [
-            -1,
-            40,
-            80,
-            120,
-            160,
-            200,
-            240,
-            280,
-            320,
-            360,
-            400,
-            440,
-            480,
-            520,
-            560,
-            600,
-            640,
-            680,
-        ]
         self.initialize_model()
 
     def initialize_model(self):
@@ -107,41 +83,6 @@ class DenseProcessor:
         cmax = int(x_center + width / 2)
 
         return rmin, rmax, cmin, cmax
-
-    def createAbsoluteMask(self, seg_mask):
-        height, width = seg_mask.shape
-        x_center = width // 2
-        y_center = height // 2
-
-        unique, counts = np.unique(seg_mask, return_counts=True)
-        label_counts = dict(zip(unique, counts))
-
-        if len(label_counts) == 1:
-            return np.ones_like(seg_mask, dtype=np.uint8)
-
-        sorted_labels = sorted(
-            label_counts.items(), key=lambda item: item[1], reverse=True
-        )
-        most_common_label, most_common_count = sorted_labels[0]
-        second_most_common_label, second_most_common_count = (
-            sorted_labels[1] if len(sorted_labels) > 1 else (None, 0)
-        )
-
-        center_label = seg_mask[y_center, x_center]
-
-        if (
-            second_most_common_label is not None
-            and most_common_count / (most_common_count + second_most_common_count)
-            < 0.55
-        ):
-            selected_label = center_label
-        else:
-            if most_common_label == 0:
-                selected_label = center_label
-            else:
-                selected_label = most_common_label
-        binary_mask = np.where(seg_mask == selected_label, 1, 0).astype(np.uint8)
-        return binary_mask
 
     def process_data(self, bounded_box, id, mask, scene, model, singleView):
         norm = transforms.Normalize(
@@ -218,15 +159,16 @@ class DenseProcessor:
             index = Variable(index)
 
             # Loop through each point in the cloud and call the pp function
-            cloud_np = cloud.cpu().detach().numpy()
-            # model.geom("geo4").rgba = [1, 1, 1, 0.4]
+            # cloud_np = cloud.cpu().detach().numpy()
+            # model.geom("geo3").rgba = [1, 1, 1, 0.4]
             # for point in cloud_np:
             #     x, y, z = point
 
             #     createGeom(
             #         scene,
-            #         4 * np.dot(singleView["rotation"], [x, y, z])
-            #         + singleView["translation"],
+            #         self.cam_scale
+            #         * np.dot(singleView["camera_matrix"]["rotation"], [x, y, z])
+            #         + singleView["camera_matrix"]["translation"],
             #     )
 
             cloud = cloud.view(1, self.num_points, 3)
@@ -281,7 +223,7 @@ class DenseProcessor:
                     [my_mat_final[0][3], my_mat_final[1][3], my_mat_final[2][3]]
                 )
 
-                my_pred = np.append(my_r_final, my_t_final * 4)
+                my_pred = np.append(my_r_final, my_t_final * self.cam_scale)
                 my_r = my_r_final
                 my_t = my_t_final
         except ZeroDivisionError:
@@ -295,7 +237,7 @@ def createGeom(scene: mujoco.MjvScene, location):
     mujoco.mjv_initGeom(
         scene.geoms[scene.ngeom - 1],
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
-        size=[0.01, 0.01, 0.01],
+        size=[0.00125, 0.00125, 0.00125],
         pos=np.array([location[0], location[1], location[2]]),
         mat=np.eye(3).flatten(),
         rgba=[random.random(), random.random(), random.random(), 1],
