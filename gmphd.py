@@ -326,7 +326,9 @@ class GmphdFilter:
                     j = i
             L = []
             for i in I:
-                x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
+                print(
+                    f"(vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) is {(vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])}"
+                )
                 if (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) <= self.U:
                     L.append(i)
             w_new = np.sum(vw[L])

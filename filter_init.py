@@ -17,11 +17,11 @@ class PhdFilter:
         self.gaussian_mixture = GaussianMixture([], [], [], [])
         self.estimated_mean = []
         self.estimated_cls = []
-        self.model = self.two_cups_model()
+        self.model = self.exp_2_model()
         self.gmphd = GmphdFilter(self.model)
         self.all_measurements = []
 
-    def two_cups_model(self):
+    def exp_2_model(self):
         model = {}
 
         # Sampling time, time step duration
@@ -41,31 +41,93 @@ class PhdFilter:
         # model["p_s"] = 1
 
         # Transition matrix
-        I_2 = np.eye(2)
-        # F = [[I_2, T_s*I_2], [02, I_2]
-        F = I_2  # Since we are only dealing with (x, y) and not velocities
-        model["F"] = F
+        I_3 = np.eye(3)
 
         # Process noise covariance matrix
-        Q = (T_s**2) * I_2
+        Q = (T_s**2) * I_3
         # Standard deviation of the process noise
-        sigma_w = 0.05
-        Q = Q * (sigma_w**2)
+        sigma_w_xy = 0.03  # Standard deviation for x and y
+        sigma_w_z = 60
+        Q = np.diag([sigma_w_xy**2, sigma_w_xy**2, sigma_w_z**2])
         model["Q"] = Q
 
-        model["birth_w"] = 0.5
-        model["birth_P"] = np.diag([0.0375, 0.0375])
+        model["birth_w"] = 0.6
+        model["birth_P"] = np.diag([0.0375, 0.0375, 50])
 
         # MEASUREMENT MODEL
         # Probability of detection
-        model["p_d"] = 0.8
+        model["p_d"] = 0.5
+        model["alpha"] = 1
+
+        # Measurement matrix z = Hx + v = N(z; Hx, R)
+        model["H"] = I_3  # Since we are now measuring (x, y, z)
+        # Measurement noise covariance matrix
+        sigma_v_xy = 0.05  # Standard deviation for measurement noise in x and y
+        sigma_v_z = (
+            50  # Larger standard deviation for z due to higher measurement noise
+        )
+        model["R"] = np.diag([sigma_v_xy**2, sigma_v_xy**2, sigma_v_z**2])
+
+        # The reference to clutter intensity function
+        model["lc"] = 0.05
+        model["clutt_int_fun"] = lambda z: clutter_intensity_function(
+            z, model["lc"], model["surveillance_region"]
+        )
+
+        model["A"] = 0.16
+        # Pruning and merging parameters
+        model["T"] = 0.2
+        model["U"] = 0.09
+        model["Jmax"] = 60
+
+        return model
+
+    def exp_1_model(self):
+        model = {}
+
+        # Sampling time, time step duration
+        T_s = 1.0
+        model["T_s"] = T_s
+        model["nObj"] = Constants.YCB_OBJECT_COUNT
+
+        # Surveillance region
+        x_min = -1
+        x_max = 1
+        y_min = -1
+        y_max = 1
+        model["surveillance_region"] = np.array([[x_min, x_max], [y_min, y_max]])
+
+        # TRANSITION MODEL
+        # Probability of survival (Commented out since it's not used)
+        # model["p_s"] = 1
+
+        # Transition matrix
+        I_3 = np.eye(3)
+
+        # Process noise covariance matrix
+        Q = (T_s**2) * I_3
+        # Standard deviation of the process noise
+        sigma_w_xy = 0.05  # Standard deviation for x and y
+        sigma_w_z = 50
+        Q = np.diag([sigma_w_xy**2, sigma_w_xy**2, sigma_w_z**2])
+        model["Q"] = Q
+
+        model["birth_w"] = 0.5
+        model["birth_P"] = np.diag([0.0375, 0.0375, 50])
+
+        # MEASUREMENT MODEL
+        # Probability of detection
+        model["p_d"] = 0.65
         model["alpha"] = 1.25
 
         # Measurement matrix z = Hx + v = N(z; Hx, R)
-        model["H"] = I_2  # Since we are only measuring (x, y)
+        model["H"] = I_3  # Since we are now measuring (x, y, z)
         # Measurement noise covariance matrix
-        sigma_v = 0.03  # m
-        model["R"] = I_2 * (sigma_v**2)
+        sigma_v_xy = 0.04  # Standard deviation for measurement noise in x and y
+        sigma_v_z = (
+            50  # Larger standard deviation for z due to higher measurement noise
+        )
+        model["R"] = np.diag([sigma_v_xy**2, sigma_v_xy**2, sigma_v_z**2])
 
         # The reference to clutter intensity function
         model["lc"] = 0.06
@@ -73,10 +135,10 @@ class PhdFilter:
             z, model["lc"], model["surveillance_region"]
         )
 
-        model["A"] = 0.2
+        model["A"] = 0.18
         # Pruning and merging parameters
         model["T"] = 0.15
-        model["U"] = 0.04
+        model["U"] = 0.06
         model["Jmax"] = 100
 
         return model
@@ -115,12 +177,16 @@ class PhdFilter:
         # self.estimated_mean.append(estimated_mean)
         # self.estimated_cls.append(estimated_cls)
 
-        combined = list(zip(list(estimated_cls), list(estimated_mean)))
-        combined.sort(key=lambda x: x[0])
-        sorted_cls, sorted_mean = zip(*combined)
+        if len(estimated_mean) == 0:
+            self.estimated_mean.append([])
+            self.estimated_cls.append([])
+        else:
+            combined = list(zip(list(estimated_cls), list(estimated_mean)))
+            combined.sort(key=lambda x: x[0])
+            sorted_cls, sorted_mean = zip(*combined)
 
-        self.estimated_mean.append(list(sorted_mean))
-        self.estimated_cls.append(list(sorted_cls))
+            self.estimated_mean.append(list(sorted_mean))
+            self.estimated_cls.append(list(sorted_cls))
 
         print(combined)
         print("Filtration time: " + str(time.time() - a) + " sec")
@@ -291,4 +357,4 @@ class PhdFilter:
         #     )
         # )
         # print("Differences:", differences)
-        return self.estimated_mean[-1]
+        return self.estimated_mean[-1], self.estimated_cls[-1]

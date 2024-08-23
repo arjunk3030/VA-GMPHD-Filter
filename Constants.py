@@ -14,7 +14,10 @@ OBJECTS = [
     ["geo3", 12],
     ["geo4", 1],
     ["geo5", 3],
-    ["geo6", 15],
+    ["geo6", 1],
+    ["geo6", 4],
+    ["geo7", 4],
+    ["geo9", 12],
 ]
 FLOOR_NAME = "floor0"
 FLOOR_HEIGHT = 0.76

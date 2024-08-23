@@ -1,7 +1,6 @@
 import math
 import numpy as np
 from Constants import CAMERA_HEIGHT, CAMERA_WIDTH
-from scipy.spatial.transform import Rotation as R
 import mujoco
 import Constants
 
@@ -69,6 +68,38 @@ def world_to_camera(camera_matrix, point_world):
     return camera_matrix["rotation"].T @ (point_world - camera_matrix["translation"])
 
 
+def rotation_matrix_to_quaternion(R):
+    trace = np.trace(R)
+
+    if trace > 0:
+        s = 0.5 / np.sqrt(trace + 1.0)
+        w = 0.25 / s
+        x = (R[2, 1] - R[1, 2]) * s
+        y = (R[0, 2] - R[2, 0]) * s
+        z = (R[1, 0] - R[0, 1]) * s
+    else:
+        if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
+            w = (R[2, 1] - R[1, 2]) / s
+            x = 0.25 * s
+            y = (R[0, 1] + R[1, 0]) / s
+            z = (R[0, 2] + R[2, 0]) / s
+        elif R[1, 1] > R[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
+            w = (R[0, 2] - R[2, 0]) / s
+            x = (R[0, 1] + R[1, 0]) / s
+            y = 0.25 * s
+            z = (R[1, 2] + R[2, 1]) / s
+        else:
+            s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
+            w = (R[1, 0] - R[0, 1]) / s
+            x = (R[0, 2] + R[2, 0]) / s
+            y = (R[1, 2] + R[2, 1]) / s
+            z = 0.25 * s
+
+    return np.array([w, x, y, z])
+
+
 def quaternion_to_rotation_matrix(q):
     w, x, y, z = q
     return np.array(
@@ -92,6 +123,52 @@ def quaternion_to_rotation_matrix(q):
     )
 
 
+def quaternion_to_euler(quat):
+    w, x, y, z = quat
+
+    # Roll (x-axis rotation)
+    sinr_cosp = 2 * (w * x + y * z)
+    cosr_cosp = 1 - 2 * (x * x + y * y)
+    roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+    # Pitch (y-axis rotation)
+    sinp = 2 * (w * y - z * x)
+    if abs(sinp) >= 1:
+        pitch = np.sign(sinp) * np.pi / 2  # use 90 degrees if out of range
+    else:
+        pitch = np.arcsin(sinp)
+
+    # Yaw (z-axis rotation)
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+    return [roll, pitch, yaw]
+
+
+def euler_to_quaternion(roll, pitch, yaw):
+    # Convert angles from degrees to radians
+    roll_rad = np.radians(roll)
+    pitch_rad = np.radians(pitch)
+    yaw_rad = np.radians(yaw)
+
+    # Compute the half angles
+    cy = np.cos(yaw_rad * 0.5)
+    sy = np.sin(yaw_rad * 0.5)
+    cp = np.cos(pitch_rad * 0.5)
+    sp = np.sin(pitch_rad * 0.5)
+    cr = np.cos(roll_rad * 0.5)
+    sr = np.sin(roll_rad * 0.5)
+
+    # Compute the quaternion components
+    w = cr * cp * cy + sr * sp * sy
+    x = sr * cp * cy - cr * sp * sy
+    y = cr * sp * cy + sr * cp * sy
+    z = cr * cp * sy - sr * sp * cy
+
+    return np.array([w, x, y, z])
+
+
 def rotation_matrix_to_euler(R):
     sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
 
@@ -109,11 +186,38 @@ def rotation_matrix_to_euler(R):
     return np.array([x, y, z])
 
 
+def rotation_matrix_to_z_rotation(R):
+    """
+    Converts a 3x3 rotation matrix to the z-axis rotation angle in degrees.
+
+    Parameters:
+    R (numpy.ndarray): A 3x3 rotation matrix.
+
+    Returns:
+    float: The z-axis rotation angle in degrees.
+    """
+    # Extract the elements of the rotation matrix
+    r11, r12, r13 = R[0, 0], R[0, 1], R[0, 2]
+    r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
+    r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
+
+    # Calculate the z-axis rotation angle
+    z_rotation = math.atan2(r21, r11)
+    z_rotation_degrees = math.degrees(z_rotation)
+
+    return z_rotation_degrees
+
+
 def calculateAngle(q, rotation):
+    q = [q[0], q[1], q[2], q[3]]
     new_rot = np.dot(rotation, quaternion_to_rotation_matrix(q))
-    new_quat = R.from_matrix(new_rot).as_quat()
-    new_quat = [new_quat[3], new_quat[0], new_quat[1], new_quat[2]]
-    print("Euler degrees: ", np.degrees(rotation_matrix_to_euler(new_rot)))
+    # new_quat = R.from_matrix(new_rot).as_quat()
+    # new_quat = [new_quat[3], new_quat[0], new_quat[1], new_quat[2]]
+    # last_rotation = np.degrees(rotation_matrix_to_euler(new_rot))[2]
+    last_rotation = rotation_matrix_to_z_rotation((new_rot))
+    print(f"Rotation on the z axis is: f{last_rotation}")
+    # print(f"Final quat is: f{rotation_matrix_to_quaternion(new_rot)}")
+    return last_rotation
 
 
 # Region growing

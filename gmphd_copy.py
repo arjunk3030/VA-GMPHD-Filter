@@ -123,23 +123,61 @@ class GaussianMixture:
                 x, self.m[i], self.detP[i], self.invP[i]
             )
 
+    # def mixture_component_values_list(self, x: np.ndarray) -> List[float]:
+    #     """
+    #     Sometimes it is useful to have value of each component multiplied with its weight
+    #     :param x: vector
+    #     :return: List[np.float64]:
+    #     List of components values at x, multiplied with their weight.
+    #     """
+    #     val = []
+    #     if self.detP is None:
+    #         for i in range(len(self.w)):
+    #             val.append(self.w[i] * multivariate_gaussian(x, self.m[i], self.P[i]))
+    #     else:
+    #         for i in range(len(self.w)):
+    #             val.append(
+    #                 self.w[i]
+    #                 * multivariate_gaussian_predefined_det_and_inv(
+    #                     x, self.m[i], self.detP[i], self.invP[i]
+    #                 )
+    #             )
+    #     return val
+
     def mixture_component_values_list(self, x: np.ndarray) -> List[float]:
         """
-        Sometimes it is useful to have value of each component multiplied with its weight
+        Sometimes it is useful to have the value of each component multiplied with its weight
         :param x: vector
         :return: List[np.float64]:
         List of components values at x, multiplied with their weight.
         """
         val = []
+        x_2d = x[:2]  # Use only the first two elements of x
+
         if self.detP is None:
             for i in range(len(self.w)):
-                val.append(self.w[i] * multivariate_gaussian(x, self.m[i], self.P[i]))
+                m_2d = self.m[i][
+                    :2
+                ]  # Use only the first two elements of the mean vector
+                P_2x2 = self.P[i][
+                    :2, :2
+                ]  # Extract the 2x2 submatrix of the covariance matrix
+                val.append(self.w[i] * multivariate_gaussian(x_2d, m_2d, P_2x2))
         else:
             for i in range(len(self.w)):
+                m_2d = self.m[i][
+                    :2
+                ]  # Use only the first two elements of the mean vector
+                P_2x2 = self.P[i][
+                    :2, :2
+                ]  # Extract the 2x2 submatrix of the covariance matrix
+                invP_2x2 = self.invP[i][
+                    :2, :2
+                ]  # Extract the 2x2 submatrix of the inverse covariance matrix
                 val.append(
                     self.w[i]
                     * multivariate_gaussian_predefined_det_and_inv(
-                        x, self.m[i], self.detP[i], self.invP[i]
+                        x_2d, m_2d, self.detP[i], invP_2x2
                     )
                 )
         return val
@@ -285,7 +323,7 @@ class GmphdFilter:
 
         similarity = dot_product / (magnitudex * magnitudey)
 
-        return similarity
+        return np.abs(similarity)
 
     def generate_smoothed_cls(self, cls):
         total_count = sum(cls)
@@ -361,10 +399,6 @@ class GmphdFilter:
                 w.append(p_c * values[i] / normalization_factor)
                 m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
                 P.append(P_kk[i].copy())
-                # new_cls = [
-                #     (current + K[i] * obs) / (1 + K[i])
-                #     for current, obs in zip(v_residual.cls[i], observation_cls)
-                # ]
                 new_cls = [
                     current + obs
                     for current, obs in zip(v_residual.cls[i], observation_cls)
@@ -375,7 +409,7 @@ class GmphdFilter:
                 cls.append(new_cls)
             if m_weight < self.A:
                 w.append(self.birth_w)
-                m.append(np.array([z[0], z[1]]))
+                m.append(z)
                 P.append(self.birth_P)
                 cls.append(observation_cls)
         return GaussianMixture(w, m, P, cls)
@@ -396,7 +430,6 @@ class GmphdFilter:
         vw = np.array(v.w)
         vm = np.array(v.m)
         vcls = np.array(v.cls)
-
         w = []
         m = []
         P = []
@@ -408,13 +441,41 @@ class GmphdFilter:
                 if vw[i] > vw[j]:
                     j = i
             L = []
+            # for i in I:
+            #     p_c = self.cosine_similarity(vcls[i], vcls[j])
+            #     x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
+            #     adjusted_x = x * 1 / p_c
+
+            #     # Apply the merging condition
+            #     if adjusted_x <= self.U:
+            #         L.append(i)
+
             for i in I:
-                x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
-                if x <= self.U:
+                p_c = self.cosine_similarity(vcls[i], vcls[j])
+
+                # vm_diff = vm[i][:2] - vm[j][:2]
+                # print(vm_diff)
+                # invP_2x2 = invP[i][:2, :2]
+
+                # x = vm_diff @ invP_2x2 @ vm_diff
+                # print(x)
+
+                if (vm[i][:2] - vm[j][:2]) @ invP[i][:2, :2] @ (
+                    vm[i][:2] - vm[j][:2]
+                ) <= (self.U * p_c):
                     L.append(i)
 
+                # if (vm[i][:2] - vm[j][:2]) @ invP[i][:2, :2] @ (
+                #     vm[i][:2] - vm[j][:2]
+                # ) <= (self.U):
+                #     L.append(i)
+
             w_new = np.sum(vw[L])
-            m_new = np.sum((vw[L] * vm[L].T).T, axis=0) / w_new
+            # m_new = np.sum((vw[L] * vm[L].T).T, axis=0) / w_new
+            m_first_two = np.sum((vw[L] * vm[L, :2].T).T, axis=0) / w_new
+            m_last = vm[L, 2].max()
+            m_new = np.concatenate([m_first_two, [m_last]])
+
             P_new = np.zeros((m_new.shape[0], m_new.shape[0]))
             cls_weighted_sum = np.zeros(len(vcls[L][0]))
             for i in L:
@@ -423,8 +484,6 @@ class GmphdFilter:
             cls_new = (cls_weighted_sum / w_new).tolist()
             for i in L:
                 P_new += vw[i] * (v.P[i] + np.outer(m_new - vm[i], m_new - vm[i]))
-                # for k in range(self.nObj):
-                #     cls_new[k] += vcls[i][k]
 
             P_new /= w_new
             w.append(w_new)

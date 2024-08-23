@@ -83,7 +83,7 @@ def processView(
                 np.where(choose_mask[:, :, np.newaxis] == 255, singleView["rgb_img"], 0)
             )
 
-            camera_coordinates = processor.process_data(
+            rotation, coordinates = processor.process_data(
                 bounded_box=object[3],
                 id=(object[4]),
                 mask=choose_mask,
@@ -92,20 +92,26 @@ def processView(
                 singleView=singleView,
             )
 
-            if all(coord == 0 for coord in camera_coordinates):
+            if all(coord == 0 for coord in coordinates):
                 logging.error("Error detecting object location and/or depth")
                 continue
 
             world_coordinates = (
-                np.dot(singleView["camera_matrix"]["rotation"], camera_coordinates[4:])
+                np.dot(singleView["camera_matrix"]["rotation"], coordinates)
                 + singleView["camera_matrix"]["translation"]
             )
-            observed_means.append(
-                np.array([world_coordinates[0], world_coordinates[1]])
-            )
             observed_cls.append(object[4])
-            PointEstimation.calculateAngle(
-                camera_coordinates[:4], singleView["camera_matrix"]["rotation"]
+            observed_means.append(
+                np.array(
+                    [
+                        world_coordinates[0],
+                        world_coordinates[1],
+                        PointEstimation.calculateAngle(
+                            rotation,
+                            singleView["camera_matrix"]["rotation"],
+                        ),
+                    ]
+                )
             )
             if DEBUG_MODE:
                 print(world_coordinates)
@@ -226,13 +232,24 @@ def step_robot(
 def stateUpdates(model, scene, data):
     ground_truth = []
     for geom in OBJECTS:
-        model.geom(geom[0]).pos += MUJOCO_TO_POSE[geom[1]]
+        new_pos = PHDFilterCalculations.asymmetric_to_symmetric_rotation(
+            model.geom(geom[0]).pos,
+            MUJOCO_TO_POSE[geom[1]],
+            PointEstimation.quaternion_to_euler(model.geom(geom[0]).quat),
+        )
+
+        model.geom(geom[0]).pos = new_pos
         ground_truth.append(
             [
                 geom[1],
                 round(model.geom(geom[0]).pos[0], 3),
                 round(model.geom(geom[0]).pos[1], 3),
             ]
+        )
+        createGeom(
+            viewer.user_scn,
+            model.geom(geom[0]).pos,
+            [random.random(), random.random(), random.random(), 1],
         )
 
     mujoco.mj_step(model, data)
@@ -243,8 +260,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Set up Mujoco model
-    model = mujoco.MjModel.from_xml_path("google_robot/EXP1_scene.xml", dict())
+    model = mujoco.MjModel.from_xml_path("google_robot/EXP2_scene.xml", dict())
     data = mujoco.MjData(model)
+
     # state updates
 
     dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
@@ -326,12 +344,12 @@ if __name__ == "__main__":
                 mujoco.mj_step(model, data)
                 viewer.sync()
             if x == "p":
-                results = filter.outputFilter()
-                for result in results:
+                means, clss = filter.outputFilter()
+                for result in means:
                     print(result)
                     createGeom(
                         viewer.user_scn,
-                        [result[0], result[1], 0.95],
+                        [result[0], result[1], 0.9],
                         [random.random(), random.random(), random.random(), 1],
                     )
                 mujoco.mj_step(model, data)

@@ -229,7 +229,7 @@ class DenseProcessor:
         except ZeroDivisionError:
             logging.log("error")
             my_pred.append([-1.0 for i in range(7)])
-        return my_pred
+        return my_r_final, (my_t_final * self.cam_scale)
 
 
 def createGeom(scene: mujoco.MjvScene, location):
