@@ -1,0 +1,22 @@
+<mujoco model="ycb_objects">
+    <statistic center="0 0 0.8" extent="2"/>  
+    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <option timestep="0.1"/>
+
+
+    <worldbody>
+        <body name="objects" pos="0 0 1">
+            <geom name="geo1" class="visual" mesh="003"  material="003_mtl"/>
+            <geom name="geo2" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo3" class="visual" mesh="012" material="012_mtl"/>
+            <geom name="geo4" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="geo5" class="visual" mesh="003"  material="003_mtl"/>
+            <geom name="geo6" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="geo7" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo8" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo9" class="visual" mesh="012" material="012_mtl"/>
+
+             <!-- <geom name="geo100" size="0.006" pos="0.0 0 1.22"/> -->
+        </body>
+    </worldbody>
+</mujoco>

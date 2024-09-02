@@ -91,18 +91,29 @@ def asymmetric_to_symmetric_rotation(
 
 def set_values(geom, mean, cls):
     geom.type = mjtGeom.mjGEOM_MESH
-    geom.meshname = Constants.CLS_TO_MESH[cls]
-    geom.material = Constants.CLS_TO_MATERIAL[cls]
+    geom.meshname = Constants.CLS_TO_MESH(cls)
+    geom.material = Constants.CLS_TO_MATERIAL(cls)
     true_center = np.array([mean[0], mean[1], 0])
     euler_angles = np.array([0, 0, mean[2]])  # in degrees
-
+    geom.quat = PointEstimation.euler_to_quaternion(0, 0, mean[2])
     new_pos = asymmetric_to_symmetric_rotation(
         true_center,
         Constants.MUJOCO_TO_POSE[cls],
         euler_angles,
     )
     geom.pos = new_pos
-    geom.quat = PointEstimation.euler_to_quaternion(0, 0, mean[2])
+
+
+def quaternion_multiply(q1, q2):
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+    z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+
+    return np.array([w, x, y, z])
 
 
 def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
@@ -127,8 +138,15 @@ def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
         data = mujoco.MjData(model)
         data.qpos[:] = scene_pos
 
+        # for geom in Constants.OBJECTS:
+        #     model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
         for geom in Constants.OBJECTS:
-            model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
+            newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
+            originalZ = model.geom(geom[0]).pos[2]
+            model.geom(geom[0]).quat = quaternion_multiply(
+                newQuat, model.geom(geom[0]).quat
+            )
+            model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
 
         mujoco.mj_step(model, data)
         dr = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
@@ -149,8 +167,15 @@ def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
     model = allGaussiansModelSpec.compile()
     data = mujoco.MjData(model)
 
+    # for geom in Constants.OBJECTS:
+    #     model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
     for geom in Constants.OBJECTS:
-        model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
+        newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
+        originalZ = model.geom(geom[0]).pos[2]
+        model.geom(geom[0]).quat = quaternion_multiply(
+            newQuat, model.geom(geom[0]).quat
+        )
+        model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
 
     data.qpos[:] = scene_pos
     mujoco.mj_step(model, data)
@@ -161,9 +186,9 @@ def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
     occluded_depth_img[occluded_depth_img >= Constants.THRESHOLD] = 0
     mujoco.mj_step(model, data)
 
-    # r = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
-    # r.update_scene(data, "frontview")
-    # Image.fromarray(r.render()).show()
+    r = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
+    r.update_scene(data, "frontview")
+    Image.fromarray(r.render()).show()
 
     visibilities = []
     for visible_points in visible_points_list:

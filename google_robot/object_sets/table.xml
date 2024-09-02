@@ -8,7 +8,7 @@
 ====================================================== -©vk©-->
 
     <asset>
-        <texture name="T_simpleWoodTable" type="cube" height="1" width="1" file="table_textures/wood1.png" />
+        <texture name="T_simpleWoodTable" type="cube" height="1" width="1" file="kitchen_textures/wood1.png" />
         <material name="M_simpleWoodTable" texture="T_simpleWoodTable" rgba="0.8 0.8 0.8 1" shininess="0.2" reflectance="0.005" texuniform="false" />
     </asset>
 

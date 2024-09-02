@@ -1,43 +1,43 @@
 <mujoco model="ycb_assets">
     <asset>    
-        <mesh file="YCB_objects/003_cracker_box.obj" scale="1 1 1"/>
+        <mesh file="YCB_objects/001.obj" scale="1 1 1"/>
+        <texture type="2d" name="001_texture" file="YCB_objects/textures/001_texture.png"/>
+        <material name="001_mtl" texture="001_texture"/>
+
+        <mesh file="YCB_objects/002.obj" scale="1 1 1"/>
+        <texture type="2d" name="002_texture" file="YCB_objects/textures/002_texture.png"/>
+        <material name="002_mtl" texture="002_texture"/>
+
+        <mesh file="YCB_objects/003.obj" scale="1 1 1"/>
         <texture type="2d" name="003_texture" file="YCB_objects/textures/003_texture.png"/>
         <material name="003_mtl" texture="003_texture"/>
 
-        <mesh file="YCB_objects/005_tomato_soup_can.obj" scale="1 1 1"/>
-        <texture type="2d" name="005_texture" file="YCB_objects/textures/005_texture.png"/>
-        <material name="005_mtl" texture="005_texture"/>
+        <mesh file="YCB_objects/004.obj" scale="1 1 1"/>
+        <texture type="2d" name="004_texture" file="YCB_objects/textures/004_texture.png"/>
+        <material name="004_mtl" texture="004_texture"/>
 
+        <mesh file="YCB_objects/008.obj" scale="1 1 1"/>
+        <texture type="2d" name="008_texture" file="YCB_objects/textures/008_texture.png"/>
+        <material name="008_mtl" texture="008_texture"/>
 
-        <mesh file="YCB_objects/006_mustard_bottle.obj" scale="1 1 1"/>
-        <texture type="2d" name="006_texture" file="YCB_objects/textures/006_texture.png"/>
-        <material name="006_mtl" texture="006_texture"/>
+        <mesh file="YCB_objects/009.obj" scale="1 1 1"/>
+        <texture type="2d" name="009_texture" file="YCB_objects/textures/009_texture.png"/>
+        <material name="009_mtl" texture="009_texture"/>
 
-        <mesh file="YCB_objects/010_potted_meat_can.obj" scale="1 1 1"/>
+        <mesh file="YCB_objects/010.obj" scale="1 1 1"/>
         <texture type="2d" name="010_texture" file="YCB_objects/textures/010_texture.png"/>
         <material name="010_mtl" texture="010_texture"/>
 
+        <mesh file="YCB_objects/012.obj" scale="1 1 1"/>
+        <texture type="2d" name="012_texture" file="YCB_objects/textures/012_texture.png"/>
+        <material name="012_mtl" texture="012_texture"/>
 
-        <mesh file="YCB_objects/024_bowl.obj" scale="1 1 1"/>
-        <texture type="2d" name="024_texture" file="YCB_objects/textures/024_texture.png"/>
-        <material name="024_mtl" texture="024_texture"/>
+        <mesh file="YCB_objects/013.obj" scale="1 1 1"/>
+        <texture type="2d" name="013_texture" file="YCB_objects/textures/013_texture.png"/>
+        <material name="013_mtl" texture="013_texture"/>
 
-
-        <mesh file="YCB_objects/025_mug.obj" scale="1 1 1"/>
-        <texture type="2d" name="025_texture" file="YCB_objects/textures/025_texture.png"/>
-        <material name="025_mtl" texture="025_texture"/>
-
-        <mesh file="YCB_objects/035_power_drill.obj" scale="1 1 1"/>
-        <texture type="2d" name="035_texture" file="YCB_objects/textures/035_texture.png"/>
-        <material name="035_mtl" texture="035_texture"/>
-
-        <mesh file="YCB_objects/036_wood_block.obj" scale="1 1 1"/>
-        <texture type="2d" name="036_texture" file="YCB_objects/textures/036_texture.png"/>
-        <material name="036_mtl" texture="036_texture"/>
-
-
-        <mesh file="YCB_objects/077_rubiks_cube.obj" scale="1 1 1"/>
-        <texture type="2d" name="077_texture" file="YCB_objects/textures/077_texture.png"/>
-        <material name="077_mtl" texture="077_texture"/>
+        <mesh file="YCB_objects/015.obj" scale="1 1 1"/>
+        <texture type="2d" name="015_texture" file="YCB_objects/textures/015_texture.png"/>
+        <material name="015_mtl" texture="015_texture"/>
     </asset>
 </mujoco>

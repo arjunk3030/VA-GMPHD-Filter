@@ -5,17 +5,36 @@
 
 
     <worldbody>
-        <body name="objects" pos="0 0 0">
-            <geom name="geo1" class="visual" mesh="005_tomato_soup_can"  material="005_mtl" pos="0.03 0.03 0.76"/>
-            <geom name="geo2" class="visual" mesh="006_mustard_bottle" material="006_mtl" pos="-0.03 0.13 0.76" quat="0.3 0 0 0.9"/>
-            <geom name="geo3" class="visual" mesh="024_bowl" material="024_mtl" pos="0.1875 0.125 0.76"/>
-            <geom name="geo4" class="visual" mesh="003_cracker_box" material="003_mtl" pos="-0.12 -0.02 0.76" quat="0.6 0 0 0.9"/>
-            <geom name="geo5" class="visual" mesh="005_tomato_soup_can"  material="005_mtl" pos="0.11 0.01 0.76"/>
-            <geom name="geo6" class="visual" mesh="003_cracker_box" material="003_mtl" pos="-0.13 0.11 0.76"/>
-            <geom name="geo7" class="visual" mesh="006_mustard_bottle" material="006_mtl" pos="-0.02 -0.1 0.76"/>
-            <geom name="geo8" class="visual" mesh="006_mustard_bottle" material="006_mtl" pos="0.07 -0.12 0.76" quat="0.1 0 0 0.5"/>
-            <geom name="geo9" class="visual" mesh="024_bowl" material="024_mtl" pos="0.21 -0.12 0.76" quat="0.1 0 0 0.5"/>
-            <!-- <geom name="geo5" size="0.01" pos="0.0 0.0 1"/> -->
+        <body name="objects" pos="0.492 1.385 1">
+            <geom name="geo1" class="visual" mesh="002"  material="002_mtl"/>
+            <geom name="geo2" class="visual" mesh="002" material="002_mtl"/>
+            <geom name="geo3" class="visual" mesh="010" material="010_mtl"/>
+            <geom name="geo4" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="geo5" class="visual" mesh="009"  material="009_mtl"/>
+            <geom name="geo6" class="visual" mesh="009" material="009_mtl"/>
+            <geom name="geo7" class="visual" mesh="009" material="009_mtl"/>
+            <geom name="geo8" class="visual" mesh="013" material="013_mtl"/>
+            <geom name="geo9" class="visual" mesh="008" material="008_mtl"/>
+            <geom name="geo10" class="visual" mesh="013" material="013_mtl" />
+            <!-- <geom name="geo50000" size="0.03" pos="0.492 1.385 0.25"/> -->
+            <!-- <geom name="geo12" class="visual" mesh="013" material="013_mtl" pos="0.07 -0.12 1.0" quat="0.0001 0 0 1"/> -->
+
+            <!-- <geom name="aa" class="visual" mesh="013_mug" material="013_mtl" pos="0.02 -0.014 1.0"/>
+            <geom name="geo5" size="0.006" pos="0.0 0.00 1.15"/> -->
+        </body>
+
+        <body name="objects2" pos="0 0 1">
+            <geom name="geo00001" class="visual" mesh="003"  material="003_mtl"/>
+            <!-- <geom name="geo2" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo3" class="visual" mesh="012" material="012_mtl"/>
+            <geom name="geo4" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="geo5" class="visual" mesh="003"  material="003_mtl"/>
+            <geom name="geo6" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="geo7" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo8" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="geo9" class="visual" mesh="012" material="012_mtl"/> -->
+
+             <!-- <geom name="geo100" size="0.006" pos="0.0 0 1.22"/> -->
         </body>
     </worldbody>
 </mujoco>

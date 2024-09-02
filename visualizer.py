@@ -3,7 +3,6 @@ import random
 from Constants import (
     CAMERA_HEIGHT,
     CAMERA_WIDTH,
-    CLS_TO_MATERIAL,
     CLS_TO_MESH,
     DEBUG_MODE,
     DURATION_IN_SECONDS,
@@ -56,7 +55,7 @@ def createGeom(scene: mujoco.MjvScene, location, rgba_given):
 
 def set_values(geom, mean, cls):
     geom.type = mjtGeom.mjGEOM_MESH
-    geom.meshname = CLS_TO_MESH[cls]
+    geom.meshname = CLS_TO_MESH(cls)
     # quat = PointEstimation.euler_to_quaternion(0, 0, mean[2])
     # geom.pos = PHDFilterCalculations.compute_mujoco_position(
     #     [mean[0], mean[1], 0], MUJOCO_TO_POSE[cls], mean[2]

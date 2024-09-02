@@ -4,11 +4,10 @@ from Constants import (
     CAMERA_HEIGHT,
     CAMERA_WIDTH,
     DEBUG_MODE,
-    DURATION_IN_SECONDS,
+    DURATION_PER_STEP,
     MUJOCO_TO_POSE,
     OBJECTS,
     THRESHOLD,
-    TOTAL_STEPS,
 )
 from DenseProcessor import DenseProcessor
 from TrajectorySettings import TRAJECTORY_PATH
@@ -24,6 +23,9 @@ import math
 import json
 import logging
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import make_interp_spline
+from scipy.interpolate import interp1d
+
 from PIL import Image
 from object_detection import detect_objects
 import numpy as np
@@ -38,12 +40,14 @@ import torch
 ssl._create_default_https_context = ssl._create_stdlib_context
 
 
-def createGeom(scene: mujoco.MjvScene, location, rgba_given):
+def createGeom(
+    scene: mujoco.MjvScene, location, rgba_given, new_size=[0.0095, 0.0095, 0.0095]
+):
     scene.ngeom += 1
     mujoco.mjv_initGeom(
         scene.geoms[scene.ngeom - 1],
         type=mujoco.mjtGeom.mjGEOM_SPHERE,
-        size=[0.0075, 0.0075, 0.0075],
+        size=new_size,
         pos=np.array([location[0], location[1], location[2]]),
         mat=np.eye(3).flatten(),
         rgba=rgba_given,
@@ -101,6 +105,7 @@ def processView(
                 + singleView["camera_matrix"]["translation"]
             )
             observed_cls.append(object[4])
+            print(f"THE OBSERVED TYPE OF OBJECT CLS STORED AND SAVED IS {object[4]}")
             observed_means.append(
                 np.array(
                     [
@@ -126,29 +131,69 @@ def processView(
 
     return through6dPose(singleView, model, scene, r)
 
-    # print(
-    #     PHDFilterCalculation.is_point_range_visible(
-    #         np.array([0, 2, 1.3]),
-    #         singleView["depth_img"],
-    #         PointEstimation.camera_intrinsic(model),
-    #         singleView["camera_matrix"],
-    #     )
-    # )
-
-    # print(
-    #     PointEstimation.is_point_visible(
-    #         np.array([0, 2, 0.3]),
-    #         singleView["rgb_img"],
-    #         singleView["depth_img"],
-    #         camera_intrinsic(model),
-    #         singleView["camera_matrix"],
-    #     )
-    # )
     # createGeom(
     #     scene,
     #     [0, 2, 0.3],
     #     [random.random(), random.random(), random.random(), 1],
     # )
+
+
+# def turn_to_angle(target_angle_degrees, data):
+#     def calculate_rotate_signal(current_angle, desired_angle, kp=0.1):
+#         angle_error = (desired_angle - current_angle + np.pi) % (2 * np.pi) - np.pi
+#         angular_control = kp * angle_error
+
+#         return angular_control
+
+#     print("IN EHRE GOOD MORNING")
+#     # target_angle_radians = np.radians(target_angle_degrees)
+
+#     current_angle = data.qpos[2]
+#     print(f"CURRENT ANGLE IS {current_angle}")
+
+#     # angle_diff = target_angle_radians - current_angle
+#     # angle_diff = (angle_diff + np.pi) % (2 * np.pi) - np.pi
+
+#     # rotation_control = 5.0 * angle_diff
+#     data.qpos[2] = 1.5
+#     data.ctrl[2] = 0
+
+
+def turn_to_angle(target_angle_degrees, data):
+    data.qpos[2] = target_angle_degrees
+    data.ctrl[2] = target_angle_degrees
+
+
+def turn_robot(target_angle_degrees, data, duration=1.5, dt=0.01):
+    current_angle = np.degrees(
+        data.qpos[2]
+    )  # Convert current angle from radians to degrees
+    steps = int(duration / dt)  # Number of steps to interpolate over
+    step_size = (target_angle_degrees - current_angle) / steps  # Increment per step
+
+    for _ in range(steps):
+        current_angle += step_size
+        data.qpos[2] = np.radians(current_angle)  # Update qpos[2] (in radians)
+        data.ctrl[2] = np.radians(current_angle)  # Apply the control signal
+        mujoco.mj_step(model, data)  # Step the simulation forward
+        viewer.sync()
+        time.sleep(dt)  # Wait for the next time step
+
+
+def turn_camera(target_angle_degrees, data, duration=0.1, dt=0.01):
+    current_angle = np.degrees(
+        data.qpos[3]
+    )  # Convert current angle from radians to degrees
+    steps = int(duration / dt)  # Number of steps to interpolate over
+    step_size = (target_angle_degrees - current_angle) / steps  # Increment per step
+
+    for _ in range(steps):
+        current_angle += step_size
+        data.qpos[3] = np.radians(current_angle)  # Update qpos[2] (in radians)
+        data.ctrl[3] = np.radians(current_angle)  # Apply the control signal
+        mujoco.mj_step(model, data)  # Step the simulation forward
+        viewer.sync()
+        time.sleep(dt)  # Wait for the next time step
 
 
 def step_robot(
@@ -168,34 +213,43 @@ def step_robot(
         img = Image.fromarray(np_array, "RGB")
         return img
 
-    def calculate_control_signal(current_positions, desired_positions, kp=180.0):
-        error = desired_positions - current_positions
-        control_signals = kp * error
-
-        return control_signals
-
-    if current_step >= TOTAL_STEPS:
+    if current_step >= len(TRAJECTORY_PATH):
         logging.error("Cannot step: completed all steps")
         return []
 
-    num_sync = int(100 * DURATION_IN_SECONDS / model.opt.timestep)
-    update_interval = round(num_sync / TOTAL_STEPS)
+    if current_step == 3:
+        turn_robot(90, data)
+        # turn_camera(90, data)
+    if current_step == 7:
+        turn_robot(180, data)
 
     points = np.array(TRAJECTORY_PATH)
+
     points[:, 0] -= model.body("base_link").pos[0]
     points[:, 1] -= model.body("base_link").pos[1]
-    spline = CubicSpline(np.arange(len(points)), points, axis=0)
-    t = np.linspace(0, len(points) - 1, num_sync)
 
-    if not viewer.is_running:
-        return
+    spline = interp1d(np.arange(len(points)), points, kind="linear", axis=0)
 
-    for i in range(update_interval):
-        desired_position = spline(t[current_step * update_interval + i])
-        current_positions = np.array([data.qpos[0], data.qpos[1]])
-        control_signals = calculate_control_signal(current_positions, desired_position)
-        data.ctrl[:2] = control_signals
+    if current_step != -1:
+        current_position = np.array([data.qpos[0], data.qpos[1]])
+        target_position = spline(current_step)
 
+        steps = int(DURATION_PER_STEP / 0.01)
+        step_size = (target_position - current_position) / steps
+
+        for _ in range(steps):
+            current_position += step_size
+            data.qpos[0:2] = current_position
+            data.ctrl[0:2] = current_position
+            mujoco.mj_step(model, data)  # Step the simulation forward
+            viewer.sync()  # Sync the viewer
+            time.sleep(0.01)  # Wait for the next time step
+    else:
+        model.body("base_link").pos = [
+            np.array(TRAJECTORY_PATH)[0][0],
+            np.array(TRAJECTORY_PATH)[0][1],
+            1 / 16,
+        ]
         mujoco.mj_step(model, data)
         viewer.sync()
 
@@ -229,16 +283,15 @@ def step_robot(
     return detect_objects(rgb_img, singleView, objectDetectionModel)
 
 
-def stateUpdates(model, scene, data):
+def stateUpdates(model, data):
     ground_truth = []
     for geom in OBJECTS:
-        new_pos = PHDFilterCalculations.asymmetric_to_symmetric_rotation(
-            model.geom(geom[0]).pos,
-            MUJOCO_TO_POSE[geom[1]],
-            PointEstimation.quaternion_to_euler(model.geom(geom[0]).quat),
+        newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
+        originalZ = model.geom(geom[0]).pos[2]
+        model.geom(geom[0]).quat = PHDFilterCalculations.quaternion_multiply(
+            newQuat, model.geom(geom[0]).quat
         )
-
-        model.geom(geom[0]).pos = new_pos
+        model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
         ground_truth.append(
             [
                 geom[1],
@@ -248,11 +301,16 @@ def stateUpdates(model, scene, data):
         )
         createGeom(
             viewer.user_scn,
-            model.geom(geom[0]).pos,
+            [
+                model.geom(geom[0]).pos[0] + 0.492,
+                model.geom(geom[0]).pos[1] + 1.385,
+                1.02,
+            ],
             [random.random(), random.random(), random.random(), 1],
         )
 
     mujoco.mj_step(model, data)
+    viewer.sync()
     return ground_truth
 
 
@@ -282,7 +340,7 @@ if __name__ == "__main__":
     )
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
-        ground_truth = stateUpdates(model, viewer.user_scn, data)
+        ground_truth = stateUpdates(model, data)
         ground_truth.sort(key=lambda x: x[0])
         print(ground_truth)
         filter = PhdFilter(ground_truth)
@@ -290,8 +348,35 @@ if __name__ == "__main__":
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
         scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = True
 
+        # height = 1.25
+        # spacing = 0.1
+        # range_min = -1
+        # range_max = 1
+
+        # # Create dots in the grid
+        # for x in range(int((range_max - range_min) / spacing) + 1):
+        #     for y in range(int((range_max - range_min) / spacing) + 1):
+        #         pos_x = range_min + x * spacing
+        #         pos_y = range_min + y * spacing
+        #         pos = [pos_x, pos_y, height]
+
+        #         # Adjust size for the dot at (0, 0)
+        #         if pos_x == 0 or pos_y == 0:
+        #             color = [1, 1, 1, 1]  # Larger size for the middle dot
+        #             createGeom(viewer.user_scn, pos, color, [0.03, 0.03, 0.03])
+        #         else:
+        #             color = [
+        #                 random.random(),
+        #                 random.random(),
+        #                 random.random(),
+        #                 1,
+        #             ]  # Random color
+
+        #         createGeom(viewer.user_scn, pos, color)
+
         mujoco.mj_step(model, data)
         viewer.sync()
+        mujoco.mj_forward(model, data)
 
         current_step = 0
 
@@ -300,6 +385,7 @@ if __name__ == "__main__":
             if x == "q" or x == "Q":
                 break
             if x == "s":
+                print(f"Target id is {model.camera("frontview").targetbodyid}")
                 for geom in OBJECTS:
                     model.geom(geom[0]).rgba = [1, 1, 1, 1]
                 mujoco.mj_step(model, data)
@@ -307,11 +393,11 @@ if __name__ == "__main__":
                 singleView = step_robot(
                     model, data, r, dr, current_step, objectDetectionModel
                 )
+                current_step += 1
                 if singleView != []:
                     observed_means, observed_cls = processView(
                         singleView, model, viewer.user_scn, r
                     )
-                    current_step += 1
                     print(f"BODY POS {model.body("base_link").pos}")
                     filter.run_filter(
                         data.qpos.copy(),
@@ -322,12 +408,14 @@ if __name__ == "__main__":
                         model.geom(geom[0]).rgba = [1, 1, 1, 0.4]
                     mujoco.mj_step(model, data)
                     viewer.sync()
+                model.camera("frontview").targetbodyid = model.body("objects2").id
+
             if x == "c":
                 for geom in OBJECTS:
                     model.geom(geom[0]).rgba = [1, 1, 1, 1]
                 mujoco.mj_step(model, data)
                 viewer.sync()
-                while current_step < TOTAL_STEPS:
+                while current_step < len(TRAJECTORY_PATH):
                     singleView = step_robot(
                         model, data, r, dr, current_step, objectDetectionModel
                     )

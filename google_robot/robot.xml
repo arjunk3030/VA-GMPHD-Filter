@@ -85,15 +85,15 @@
   <worldbody>
   	<!-- <geom name="floor" pos="0 0 0" size="5 5 0.125" type="plane" condim="3" material="floorplane"></geom> -->
 	<light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"></light>
-
-    <body name="base_link" childclass="robot" pos="0 -0.475 0.06205">
+    <body name="base_link" childclass="robot" pos="0 -0.6 0.06205">
       <site name="imu1" rgba="0. 1. 0. .4"/>
-
-      <camera name="frontview" pos="0 0 0.885" mode="targetbodycom"  target="objects" xyaxes="1 0 0 0 1 2"/>
+      <!-- 0.825 is 0.95 -->
+      <camera name="frontview" pos="0 0 1.125" mode="targetbodycom"  target="objects" xyaxes="1 0 0 0 1 2"/>
       <inertial diaginertia="1.2869 1.2236 0.9868" mass="70.1294" pos="-0.0036 0 0.0014" quat="0.7605 -0.0133 -0.0061 0.6491"></inertial>
 
       <joint name="base_x_slide_joint" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-100 100" damping="15000"/>
       <joint name="base_y_slide_joint" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-100 100" damping="15000"/>
+      <joint name="base_yaw_joint" type="hinge" pos="0 0 0" axis="0 0 1" limited="true" range="-180 180" damping="15000"/>
       <!-- geom for base -->
       <geom class="visual" mesh="link_base_v"/>
       <geom class="collision" mesh="link_base_0_00"/>
@@ -125,11 +125,15 @@
       <geom class="collision" pos="0 0.18283 0" size="0.06435 5e-06" quat="1 1 0 0" type="cylinder"/>
       <geom class="collision" pos="0 -0.18283 0" size="0.06035 0.00925" quat="1 1 0 0" type="cylinder"/>
       <geom class="collision" pos="0 -0.18283 0" size="0.06435 5e-06" quat="1 1 0 0" type="cylinder"/>
-      <geom class="visual" pos="0 0 1.16902"  mesh="link_head_pan_v"/>
-      <geom class="collision" pos="0 0 1.16902" mesh="link_head_pan"/>
-      <geom class="visual" pos="0.07181 0 1.2875" mesh="link_head_tilt_v"/>
-      <geom class="collision" pos="0.07181 0 1.2875" mesh="link_head_tilt"/>
-      <!-- arm -->
+      
+      <body>
+        <joint name="camera_yaw_joint" type="hinge" pos="0 0  1.16902" axis="0 0 1" limited="true" range="-180 180" damping="15000"/>
+        <geom class="visual" pos="0 0 1.16902"  mesh="link_head_pan_v"/>
+        <geom class="collision" pos="0 0 1.16902" mesh="link_head_pan"/>
+        <geom class="visual" pos="0.07181 0 1.2875" mesh="link_head_tilt_v"/>
+        <geom class="collision" pos="0.07181 0 1.2875" mesh="link_head_tilt"/>
+      </body>
+     <!-- arm -->
       <body name="link_torso" pos="0 0 0.5945">
         <inertial pos="0 0 0.108398" diaginertia="0.0184592 0.0154173 0.0102031" mass="2.46883"/>
         <joint name="joint_torso" axis="0 0 1" range="-4.49 1.35"/>
@@ -214,6 +218,8 @@
    <actuator>
      <position ctrllimited="true" ctrlrange="-15.0 15.0" joint="base_x_slide_joint" kp="18000" name="base_x_slide_joint" user="1"/>
      <position ctrllimited="true" ctrlrange="-15.0 15" joint="base_y_slide_joint" kp="18000" name="base_y_slide_joint" user="1"/>
+     <position ctrllimited="true" ctrlrange="-30.0 30.0" joint="base_yaw_joint" kp="18000" name="base_yaw_control" user="1"/>
+     <position ctrllimited="true" ctrlrange="-30.0 30.0" joint="camera_yaw_joint" kp="18000" name="head_yaw_control" user="1"/>
      <position joint="joint_torso"        kp="40" ctrlrange="-4.49 1.35" forcerange="-150 150"/>
      <position joint="joint_shoulder"     kp="40" ctrlrange="-2.66 3.18" forcerange="-150 150"/>
      <position joint="joint_bicep"        kp="40" ctrlrange="-2.13 3.71" forcerange="-30 30"/>

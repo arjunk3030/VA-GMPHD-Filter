@@ -1,0 +1,44 @@
+<mujoco model="counters">
+<!-- =================================================
+    Copyright 2019 Vikash Kumar
+    Model   :: counters (MuJoCoV2.0)
+    Author  :: Vikash Kumar (vikashplus@gmail.com)
+    Details :: https://github.com/vikashplus/furniture_sim
+    License :: Under Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+====================================================== -©vk©-->
+    <compiler angle="radian"/>
+    <asset>
+        <texture name="T_counter_metal" type="cube" height="1" width="1" file="kitchen_textures/metal0.png" />
+        <texture name="T_counter_marble" type="cube" height="1" width="1" file="kitchen_textures/stone2.png" />
+        <texture name="T_counter_wood" type="cube" height="2" width="2" file="kitchen_textures/wood1.png"/>
+
+        <material name="counter_metal" rgba="1 1 1 1" texture="T_counter_metal" texrepeat="3 3" reflectance="0" shininess="0" texuniform="false" />
+        <material name="counter_marble"  texture="T_counter_marble" texrepeat="1 1" reflectance="0" shininess="0" texuniform="false" />
+        <material name="counter_black" rgba=".2 .2 .2 1" reflectance="0" shininess="0"  />
+        <material name="counter_blue" texture="T_counter_wood" rgba="1 1 1 1" reflectance="0" shininess="0" texuniform="false"/>
+        <material name="counter_collision_blue" rgba="0.3 0.3 1.0 0.5" shininess="0" specular="0" />
+
+    </asset>
+
+    <default>
+        <default class="counters">
+            <joint damping="2" frictionloss="2" armature=".01" limited="true"/>
+            <geom conaffinity="0" contype="0" group="1" material="counter_metal" type="mesh"/>
+            <default class="counter_collision">
+                <geom conaffinity="1" condim="3" contype="0" group="4" margin="0.001" material="counter_collision_blue"/>
+            </default>
+        </default>
+    </default>
+
+    <worldbody>
+        <body name="box_counter" pos="-0.71 1.25 0" childclass="counters">
+            <geom material="counter_marble" pos="-0.855 -0.508 0.97" size="0.463 1.08 0.03" type="box"/>
+            <geom material="counter_blue" pos="-0.86 -0.5 0.477" size="0.460 1.07 0.477" type="box"/>
+        </body>
+        <body name="box_counter2" pos="1 2.24 0" childclass="counters">
+            <geom material="counter_marble" pos="-0.508 -0.855 0.97" size="0.65 0.423 0.03" type="box"/>
+            <geom material="counter_blue" pos="-0.5 -0.86 0.477" size="0.64 0.420 0.477" type="box"/>
+        </body>
+    </worldbody>
+
+</mujoco>
