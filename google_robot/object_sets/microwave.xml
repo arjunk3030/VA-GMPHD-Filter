@@ -34,7 +34,7 @@
     </default>
 
     <worldbody>
-        <body pos="-1.6 1.25 1" euler="0 0 0.3" name="microroot" childclass="microwave">
+        <body pos="-1.6 1.25 1.1625" euler="0 0 0.3" name="microroot" childclass="microwave">
             <geom mesh="micro"/>
             <geom material="micro_metal" mesh="microbutton"/>
             <geom material="micro_metal" mesh="microfeet"/>

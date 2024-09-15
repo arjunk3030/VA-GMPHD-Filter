@@ -33,7 +33,7 @@
     </sensor> -->
 
     <worldbody>
-        <body pos="-0.6 1.51 1.9">
+        <body pos="-0.6 1.51 2.0625">
             <body name="hingecab" childclass="hingecabinet">
                 <geom material="M_hinge_blue" size="0.04 0.3 0.2" type="box"/>
                 <geom material="M_hinge_blue" pos="0.38 0 0" size="0.02 0.3 0.2" type="box"/>

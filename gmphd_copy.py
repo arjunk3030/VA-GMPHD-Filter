@@ -303,7 +303,7 @@ class GmphdFilter:
         self.birth_w = model["birth_w"]
         self.birth_P = model["birth_P"]
         # self.birth_GM = model["birth_GM"]
-        self.p_d = model["p_d"]
+        self.specs = model["specs"]
         self.H = model["H"]
         self.R = model["R"]
         self.clutter_density_func = model["clutt_int_fun"]
@@ -325,6 +325,16 @@ class GmphdFilter:
 
         return np.abs(similarity)
 
+    def p_d_calc(self, distance: float, specs):
+        max_range, threshold, constant_p_d, min_p_d = specs
+        if distance <= threshold:
+            return constant_p_d
+        elif threshold < distance <= max_range:
+            scale = (distance - threshold) / (max_range - threshold)
+            return constant_p_d - scale * (constant_p_d - min_p_d)
+        else:
+            return min_p_d
+
     def generate_smoothed_cls(self, cls):
         total_count = sum(cls)
         smoothed_cls = [
@@ -345,7 +355,7 @@ class GmphdFilter:
         return GaussianMixture(v_s.w, v_s.m, v_s.P, v.cls)
 
     def correction(
-        self, v: GaussianMixture, p_v, Z: List[np.ndarray], Zcls
+        self, v: GaussianMixture, p_v, Z: List[np.ndarray], Zcls, distance
     ) -> GaussianMixture:
         """
         Correction step of the GMPHD filter
@@ -353,10 +363,11 @@ class GmphdFilter:
         - v: Gaussian mixture obtained from the prediction step
         - Z: Measurement set, containing set of observations
         """
-
+        p_d = self.p_d_calc(distance, self.specs)
+        print(f"p_d is {p_d}")
         v_residual = GaussianMixture([], [], [], v.cls)
         for i, (w, m, P) in enumerate(zip(v.w, v.m, v.P)):
-            v_residual.w.append(p_v[i] * w * self.p_d)
+            v_residual.w.append(p_v[i] * w * p_d)
             v_residual.m.append(self.H @ m)
             v_residual.P.append(self.R + self.H @ P @ self.H.T)
 
@@ -374,7 +385,7 @@ class GmphdFilter:
         v_copy = v.copy()
 
         w_visible = [
-            weight * probability * (1 - self.p_d)
+            weight * probability * (1 - p_d)
             for weight, probability in zip(v_copy.w, p_v)
         ]
         w_not_visible = [
@@ -453,21 +464,14 @@ class GmphdFilter:
             for i in I:
                 p_c = self.cosine_similarity(vcls[i], vcls[j])
 
-                # vm_diff = vm[i][:2] - vm[j][:2]
-                # print(vm_diff)
-                # invP_2x2 = invP[i][:2, :2]
-
-                # x = vm_diff @ invP_2x2 @ vm_diff
-                # print(x)
-
                 if (vm[i][:2] - vm[j][:2]) @ invP[i][:2, :2] @ (
                     vm[i][:2] - vm[j][:2]
                 ) <= (self.U * p_c):
                     L.append(i)
 
-                # if (vm[i][:2] - vm[j][:2]) @ invP[i][:2, :2] @ (
-                #     vm[i][:2] - vm[j][:2]
-                # ) <= (self.U):
+                # if (vm[i][:3] - vm[j][:3]) @ invP[i][:3, :3] @ (
+                #     vm[i][:3] - vm[j][:3]
+                # ) <= (self.U * p_c):
                 #     L.append(i)
 
             w_new = np.sum(vw[L])

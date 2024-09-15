@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from Constants import CAMERA_HEIGHT, CAMERA_WIDTH
+from Constants import CAMERA_HEIGHT, CAMERA_WIDTH, TABLE_RANGES
 import mujoco
 import Constants
 
@@ -10,6 +10,7 @@ def compute_rotation_matrix(r):
     # camera_right = np.cross(camera.up, camera.forward)
     # return np.column_stack((camera_right, camera.up, camera.forward))
     forward = np.array(camera.forward, dtype=float)
+
     up = np.array(camera.up, dtype=float)
 
     # Calculate right vector
@@ -232,7 +233,7 @@ def distance_3d(point1, point2, camera_matrix):
 
 
 def near_ground(z):
-    threshold = 0.003
+    threshold = 0.006
     if abs(abs(z) - Constants.FLOOR_HEIGHT) < threshold:
         return True
     if abs(z) < threshold:
@@ -246,8 +247,8 @@ def createChooseMask(
     camera_matrix,
     seed,
     model,
-    tolerance_depth=0.02,
-    tolerance_color=100,
+    tolerance_depth=0.01,
+    tolerance_color=130,
 ):
     rgb_image = np.array(rgbImage)
 
@@ -256,10 +257,11 @@ def createChooseMask(
     stack = [seed]
     segmented[seed[1], seed[0]] = 255
 
+    intrinsic = camera_intrinsic(model)
     while stack:
         x, y = stack.pop()
         current_3d = image_to_camera_coordinates(
-            x, y, depth_image[round(y), round(x)], camera_intrinsic(model)
+            x, y, depth_image[round(y), round(x)], intrinsic
         )
         world_3d = camera_to_world(camera_matrix, current_3d)
 
@@ -273,7 +275,7 @@ def createChooseMask(
             nx, ny = x + dx, y + dy
             if 0 <= nx < width and 0 <= ny < height and segmented[ny, nx] == 0:
                 neighbor_3d = image_to_camera_coordinates(
-                    nx, ny, depth_image[round(ny), round(nx)], camera_intrinsic(model)
+                    nx, ny, depth_image[round(ny), round(nx)], intrinsic
                 )
                 world_3d_neighbor = camera_to_world(camera_matrix, neighbor_3d)
 
@@ -305,6 +307,31 @@ def evaluate_mask(mask, bounding_box):
     return np.sum(cropped_mask == 255)
 
 
+def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, model):
+    center_x, center_y, center_z, radius_x, radius_y, radius_z = TABLE_RANGES[
+        object_set
+    ]
+
+    # Convert the 2D point to camera coordinates
+    intrinsic = camera_intrinsic(model)
+    point_3d_camera = image_to_camera_coordinates(
+        point_2d[0],
+        point_2d[1],
+        depth_image[round(point_2d[1]), round(point_2d[0])],
+        intrinsic,
+    )
+
+    # Convert the camera coordinates to world coordinates
+    point_3d_world = camera_to_world(camera_matrix, point_3d_camera)
+
+    # Check if the point lies within the 3D box
+    return (
+        (center_x - radius_x <= point_3d_world[0] <= center_x + radius_x)
+        and (center_y - radius_y <= point_3d_world[1] <= center_y + radius_y)
+        and (center_z - radius_z <= point_3d_world[2] <= center_z + radius_z)
+    )
+
+
 def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, model):
     x, y, width, height = bounding_box
 
@@ -315,7 +342,6 @@ def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, model):
         (x - width // 4, y),  # left
         (x + width // 4, y),  # right
     ]
-
     best_score = -1
     best_segmentation = None
 

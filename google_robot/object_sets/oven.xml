@@ -59,25 +59,39 @@
 
     <worldbody>
         <!-- <light class="oven" name="ovenlighta" pos="0 1.3 2.5" dir="0 -.02 -.1" attenuation="0.05 0.05 0.05" cutoff="75" diffuse=".7 .65 .65" specular=".3 .3 .3"/> -->
-        <body pos="-0.7 1.55 0">
-            <body name="ovenroot" childclass="oven" pos="0.115 -0.2921 0.825">
-                <geom material="oven_black" mesh="burnerplate" pos="-0.24 -0.119 0.150"/>
+        <body pos="-0.72 1.55 0">
+            <body name="ovenroot" childclass="oven" pos="0.115 -0.2921 0.90625"> <!-- Raised the entire oven by 0.08125 to compensate for half the height -->
+                <!-- Burner plates (no vertical change, as they are already at a specific height) -->
+                <!-- <geom material="oven_black" mesh="burnerplate" pos="-0.24 -0.119 0.150"/>
                 <geom material="oven_black" mesh="burnerplate" pos="-0.237 0.322 0.150"/>
                 <geom material="oven_black" mesh="burnerplate" pos="0.204 0.322 0.150"/>
-                <geom material="oven_black" mesh="burnerplate" pos="0.206 -0.119 0.150"/>
-                <geom material="oven_black" euler="1.57 0 0" pos="-.215 -0.36 -0.620" size="0.018 0.03" type="cylinder"/>
-                <geom material="oven_black" euler="1.57 0 0" pos=".184 -0.36 -0.620" size="0.018 0.03" type="cylinder"/>
-                <geom material="oven_black" euler="0 1.57 0" pos="-0.015 -0.39 -0.620" size="0.022 0.28" type="cylinder"/>
-                <geom material="oven_black" euler="1.57 0 0" pos="-.215 -0.36 0.07" size="0.018 0.03" type="cylinder"/>
-                <geom material="oven_black" euler="1.57 0 0" pos=".184 -0.36 0.07" size="0.018 0.03" type="cylinder"/>
-                <geom material="oven_black" euler="0 1.57 0" pos="-0.015 -0.39 0.07" size="0.022 0.28" type="cylinder"/>
-                <geom material="oven_black" mesh="oventop" pos="-0.017 .12 0.150"/>
-                <geom material="oven_black" pos="-0.011 -.29 -.308" size="0.35 0.016 0.2" type="box"/>
-                <geom mesh="stoverim" pos="0.203 0.323 0.172"/>
+                <geom material="oven_black" mesh="burnerplate" pos="0.206 -0.119 0.150"/> -->
+                
+                <!-- Oven legs - added height by extending the length and adjusting positions -->
+                <!-- <geom material="oven_black" euler="1.57 0 0" pos="-.215 -0.36 -0.620" size="0.018 0.11125" type="cylinder"/>  -->
+                <!-- Adjusted size to include half the added height -->
+                <!-- <geom material="oven_black" euler="1.57 0 0" pos=".184 -0.36 -0.620" size="0.018 0.11125" type="cylinder"/>
+                <geom material="oven_black" euler="0 1.57 0" pos="-0.015 -0.39 -0.620" size="0.022 0.36125" type="cylinder"/> -->
+
+                <!-- Adjusted top cylinders -->
+                <geom material="oven_black" euler="1.57 0 0" pos="-.215 -0.36 0.07" size="0.018 0.11125" type="cylinder"/>
+                <geom material="oven_black" euler="1.57 0 0" pos=".184 -0.36 0.07" size="0.018 0.11125" type="cylinder"/>
+                <geom material="oven_black" euler="0 1.57 0" pos="-0.015 -0.39 0.07" size="0.022 0.36125" type="cylinder"/>
+
+                <!-- Other parts (keep vertical unchanged or adjust as necessary) -->
+                <geom material="oven_black" mesh="oventop" pos="-0.017 .12 0.23125"/> <!-- Raised oven top by 0.08125 -->
+                <geom material="oven_black" pos="-0.011 -.29 -.308" size="0.35 0.016 0.28125" type="box"/> <!-- Increased thickness of this part to compensate for height -->
+                
+                <!-- Stove rims (no vertical change needed for horizontal parts) -->
+                <!-- <geom mesh="stoverim" pos="0.203 0.323 0.172"/>
                 <geom mesh="stoverim" pos="-0.24 -0.12 0.172"/>
                 <geom mesh="stoverim" pos="-0.237 0.323 0.172"/>
-                <geom mesh="stoverim" pos="0.207 -0.12 0.172"/>
-                <geom mesh="oven" pos="-.115 .12 -.825"/>
+                <geom mesh="stoverim" pos="0.207 -0.12 0.172"/> -->
+                
+                <!-- <geom mesh="oven" pos="-.115 .12 -.825"/> -->
+                <geom rgba="1 1 1 1" pos="-0.02 0.13 -0.33" size="0.5 0.425 0.55825" type="box"/> 
+
+            </body>
 
                 <!-- <body name="knob 1" euler="1.57 0 0" pos="-0.148 0.22 1.083">
                     <joint name="knob1_joint" axis="0 0 1" type="hinge" limited="true" range="-1.57 0"/>
@@ -139,7 +153,6 @@
                     <joint name="burner4_joint" axis="0 0 -1" type="slide" limited="true" stiffness="1" range="-.009 0"/>
                     <geom material="oven_burner" size="0.1 0.01" type="cylinder" group="1"/>
                 </body> -->
-            </body>
 
             <!-- <body name="hoodroot" pos="0.1 0.188 2" childclass="oven">
                 <geom material="oven_black" mesh="hood" pos="-0.1 -0.2896 -2.329"/>

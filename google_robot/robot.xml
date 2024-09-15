@@ -85,10 +85,10 @@
   <worldbody>
   	<!-- <geom name="floor" pos="0 0 0" size="5 5 0.125" type="plane" condim="3" material="floorplane"></geom> -->
 	<light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"></light>
-    <body name="base_link" childclass="robot" pos="0 -0.6 0.06205">
+    <body name="base_link" childclass="robot" pos="0.1 -0.8 0.06205">
       <site name="imu1" rgba="0. 1. 0. .4"/>
       <!-- 0.825 is 0.95 -->
-      <camera name="frontview" pos="0 0 1.125" mode="targetbodycom"  target="objects" xyaxes="1 0 0 0 1 2"/>
+      <!-- <camera name="frontview" pos="0 0 1.125" mode="targetbodycom" fovy="37.5" target="objects2" xyaxes="1 0 0 0 1 2"/> -->
       <inertial diaginertia="1.2869 1.2236 0.9868" mass="70.1294" pos="-0.0036 0 0.0014" quat="0.7605 -0.0133 -0.0061 0.6491"></inertial>
 
       <joint name="base_x_slide_joint" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-100 100" damping="15000"/>
@@ -128,6 +128,8 @@
       
       <body>
         <joint name="camera_yaw_joint" type="hinge" pos="0 0  1.16902" axis="0 0 1" limited="true" range="-180 180" damping="15000"/>
+        <camera name="frontview" pos="0.1875 0 1.2875" mode="targetbodycom" fovy="44" target="objects2" xyaxes="1 0 0 0 1 2"/>
+        <!-- <geom name="geo100" size="0.05" pos="0.1875 0 1.2875"/> -->
         <geom class="visual" pos="0 0 1.16902"  mesh="link_head_pan_v"/>
         <geom class="collision" pos="0 0 1.16902" mesh="link_head_pan"/>
         <geom class="visual" pos="0.07181 0 1.2875" mesh="link_head_tilt_v"/>

@@ -19,7 +19,7 @@ def calculate_visibility_probability(visible_points, occluded_depth_image):
         if abs(occluded_depth_image[y, x] - depth_value) <= 0.01:
             visible_points_count += 1
 
-    if valid_points < 500:
+    if valid_points < 600:
         return 0
 
     visibility_probability = visible_points_count / valid_points
@@ -116,7 +116,9 @@ def quaternion_multiply(q1, q2):
     return np.array([w, x, y, z])
 
 
-def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
+def calculate_all_p_v(
+    current_object_set, scene_pos, scene_ctrl, all_means, all_cls, estimated_mean
+):
     allGaussiansModelSpec = mujoco.MjSpec()
     allGaussiansModelSpec.from_file("google_robot/empty_EXP2_scene.xml")
 
@@ -136,28 +138,42 @@ def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
 
         model = singleGaussian.compile()
         data = mujoco.MjData(model)
+        model.camera(Constants.CAMERA_NAME).targetbodyid = model.body(
+            current_object_set
+        ).id
+        data.ctrl[5] = 0.5
+        data.ctrl[7] = 3
+        model.vis.global_.fovy = model.cam(Constants.CAMERA_NAME).fovy[0]
+        data.ctrl[:] = scene_ctrl
         data.qpos[:] = scene_pos
+        mujoco.mj_step(model, data)
 
         # for geom in Constants.OBJECTS:
         #     model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
-        for geom in Constants.OBJECTS:
-            newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
-            originalZ = model.geom(geom[0]).pos[2]
-            model.geom(geom[0]).quat = quaternion_multiply(
-                newQuat, model.geom(geom[0]).quat
-            )
-            model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
+        for object_set in Constants.OBJECT_SETS.values():
+            for geom in object_set:
+                newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
+                originalZ = model.geom(geom[0]).pos[2]
+                model.geom(geom[0]).quat = quaternion_multiply(
+                    newQuat, model.geom(geom[0]).quat
+                )
+                model.geom(geom[0]).rgba = [1, 1, 1, 0]
+                model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
 
         mujoco.mj_step(model, data)
         dr = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
         dr.enable_depth_rendering()
-        dr.update_scene(data, "frontview")
+        dr.update_scene(data, Constants.CAMERA_NAME)
 
         simple_depth_img = dr.render()
         simple_depth_img[simple_depth_img >= Constants.THRESHOLD] = 0
         mujoco.mj_step(model, data)
 
         visible_points_list.append(get_visible_points(simple_depth_img))
+
+        # r = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
+        # r.update_scene(data, Constants.CAMERA_NAME)
+        # Image.fromarray(r.render()).show()
 
         # Add to model for 2nd list
         if any(np.array_equal(mean, sublist) for sublist in estimated_mean):
@@ -166,34 +182,43 @@ def calculate_all_p_v(scene_pos, all_means, all_cls, estimated_mean):
 
     model = allGaussiansModelSpec.compile()
     data = mujoco.MjData(model)
+    data.ctrl[5] = 0.5
+    data.ctrl[7] = 3
+    model.vis.global_.fovy = model.cam(Constants.CAMERA_NAME).fovy[0]
+    model.camera(Constants.CAMERA_NAME).targetbodyid = model.body(current_object_set).id
+    data.ctrl[:] = scene_ctrl
+    data.qpos[:] = scene_pos
+    mujoco.mj_step(model, data)
 
     # for geom in Constants.OBJECTS:
     #     model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
-    for geom in Constants.OBJECTS:
-        newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
-        originalZ = model.geom(geom[0]).pos[2]
-        model.geom(geom[0]).quat = quaternion_multiply(
-            newQuat, model.geom(geom[0]).quat
-        )
-        model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
+    for object_set in Constants.OBJECT_SETS.values():
+        for geom in object_set:
+            newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
+            originalZ = model.geom(geom[0]).pos[2]
+            model.geom(geom[0]).quat = quaternion_multiply(
+                newQuat, model.geom(geom[0]).quat
+            )
+            model.geom(geom[0]).rgba = [1, 1, 1, 0]
+            model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
 
     data.qpos[:] = scene_pos
     mujoco.mj_step(model, data)
     dr = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
     dr.enable_depth_rendering()
-    dr.update_scene(data, "frontview")
+    dr.update_scene(data, Constants.CAMERA_NAME)
     occluded_depth_img = dr.render()
     occluded_depth_img[occluded_depth_img >= Constants.THRESHOLD] = 0
     mujoco.mj_step(model, data)
 
-    r = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
-    r.update_scene(data, "frontview")
-    Image.fromarray(r.render()).show()
+    # r = mujoco.Renderer(model, Constants.CAMERA_HEIGHT, Constants.CAMERA_WIDTH)
+    # r.update_scene(data, Constants.CAMERA_NAME)
+    # Image.fromarray(r.render()).show()
 
     visibilities = []
     for visible_points in visible_points_list:
         visibilities.append(
             calculate_visibility_probability(visible_points, occluded_depth_img)
         )
-    print(f"visibilities are {visibilities}")
+    print(f"visibilities are {visibilities} {[cls.index(max(cls)) for cls in all_cls]}")
     return visibilities

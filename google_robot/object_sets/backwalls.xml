@@ -30,11 +30,11 @@
 
 
     <worldbody>
-        <body name="wallroot" childclass="backwall" pos="-0.4 1.82 0.96">
+        <body name="wallroot" childclass="backwall" pos="-0.4 1.82 1.1225">
             <geom pos="-.11 0.06 .6" size="1.64 0.07 0.6" type="box"/>
             <geom material="wall_white" pos="-0.11 0.06 0.145" size="1.64 0.08 0.145" type="box"/>
         </body>
-        <body euler="0 0 1.57" name="sidewall" childclass="backwall" pos="-2.02 0.7 0.96">
+        <body euler="0 0 1.57" name="sidewall" childclass="backwall" pos="-2.02 0.7 1.1225">
             <geom pos="0.044 .06 0.6" size="1.079 0.07 0.6" type="box"/>
             <geom material="wall_white" pos="0.044 .06 0.145" size="1.079 0.08 0.145" type="box"/>
         </body>

@@ -3,9 +3,8 @@
     <compiler angle="radian" assetdir="assets" autolimits="true"/>
     <option timestep="0.1"/>
 
-
     <worldbody>
-        <body name="objects" pos="0.492 1.385 1">
+        <body name="objects1" pos="0.492 1.385 1.1625">
             <geom name="geo1" class="visual" mesh="002"  material="002_mtl"/>
             <geom name="geo2" class="visual" mesh="002" material="002_mtl"/>
             <geom name="geo3" class="visual" mesh="010" material="010_mtl"/>
@@ -16,24 +15,33 @@
             <geom name="geo8" class="visual" mesh="013" material="013_mtl"/>
             <geom name="geo9" class="visual" mesh="008" material="008_mtl"/>
             <geom name="geo10" class="visual" mesh="013" material="013_mtl" />
-            <!-- <geom name="geo50000" size="0.03" pos="0.492 1.385 0.25"/> -->
-            <!-- <geom name="geo12" class="visual" mesh="013" material="013_mtl" pos="0.07 -0.12 1.0" quat="0.0001 0 0 1"/> -->
-
-            <!-- <geom name="aa" class="visual" mesh="013_mug" material="013_mtl" pos="0.02 -0.014 1.0"/>
-            <geom name="geo5" size="0.006" pos="0.0 0.00 1.15"/> -->
+            <!-- <geom name="geo5" size="0.006" pos="0.0 0.00 1.15"/> -->
         </body>
 
-        <body name="objects2" pos="0 0 1">
-            <geom name="geo00001" class="visual" mesh="003"  material="003_mtl"/>
-            <!-- <geom name="geo2" class="visual" mesh="004" material="004_mtl"/>
-            <geom name="geo3" class="visual" mesh="012" material="012_mtl"/>
-            <geom name="geo4" class="visual" mesh="001" material="001_mtl"/>
-            <geom name="geo5" class="visual" mesh="003"  material="003_mtl"/>
-            <geom name="geo6" class="visual" mesh="001" material="001_mtl"/>
-            <geom name="geo7" class="visual" mesh="004" material="004_mtl"/>
-            <geom name="geo8" class="visual" mesh="004" material="004_mtl"/>
-            <geom name="geo9" class="visual" mesh="012" material="012_mtl"/> -->
+        <body name="objects2" pos="0.1 -0.1 1.1625">
+            <geom name="objects2_geo1" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="objects2_geo2" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="objects2_geo3" class="visual" mesh="012" material="012_mtl"/>
+            <geom name="objects2_geo4" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="objects2_geo5" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="objects2_geo6" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="objects2_geo7" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="objects2_geo8" class="visual" mesh="004" material="004_mtl"/>
+            <geom name="objects2_geo9" class="visual" mesh="012" material="012_mtl"/>
+             <!-- <geom name="geo100" size="0.006" pos="0.0 0 1.22"/> -->
+        </body>
 
+        <body name="objects3" pos="-1.565 0.3 1.1625">
+            <geom name="objects3_geo1" class="visual" mesh="004"  material="004_mtl"/>
+            <geom name="objects3_geo2" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="objects3_geo3" class="visual" mesh="008" material="008_mtl"/>
+            <geom name="objects3_geo4" class="visual" mesh="013" material="013_mtl"/>
+            <geom name="objects3_geo5" class="visual" mesh="004"  material="004_mtl"/>
+            <geom name="objects3_geo6" class="visual" mesh="001" material="001_mtl"/>
+            <geom name="objects3_geo7" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="objects3_geo8" class="visual" mesh="003" material="003_mtl"/>
+            <geom name="objects3_geo9" class="visual" mesh="002" material="002_mtl"/>
+            <geom name="objects3_geo10" class="visual" mesh="012" material="012_mtl"/>
              <!-- <geom name="geo100" size="0.006" pos="0.0 0 1.22"/> -->
         </body>
     </worldbody>
