@@ -21,4 +21,4 @@ def display_images_horizontally(images):
 
     stacked_image_column = np.hstack(stacked_columns)
     stacked_image = Image.fromarray(stacked_image_column)
-    stacked_image.show()
+    stacked_image.show()  # TODO: ADD BACK

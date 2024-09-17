@@ -14,10 +14,17 @@ YCB_OBJECT_COUNT = 21
 #     ["geo1", 4],
 #     # ["geo2", 4],
 # ]
+IRRELEVANT_ROTATION = [3, 12]
 TABLE_RANGES = {
     "objects1": [0.492, 1.385, 1, 0.7, 0.4, 1],
     "objects2": [0.1, -0.1, 1, 0.6, 0.4, 1.5],  # center
     "objects3": [-1.565, 0.3, 1, 0.4, 0.7, 1],
+}
+
+TABLE_DELTAS = {
+    "objects1": [0.492, 1.385],
+    "objects2": [0.1, -0.1],
+    "objects3": [-1.565, 0.3],
 }
 OBJECT_SETS = {
     "objects1": [
@@ -52,7 +59,7 @@ OBJECT_SETS = {
         ["objects3_geo6", 1, [-0.13, 0.11], 0],
         ["objects3_geo7", 3, [-0.02, -0.1], 0],
         ["objects3_geo8", 3, [0.07, -0.08], 151],
-        ["objects3_geo9", 2, [0.21, -0.08], 152],
+        ["objects3_geo9", 2, [0.21, -0.09], 152],
         ["objects3_geo10", 12, [0.08, 0.35], 23],
     ],
 }

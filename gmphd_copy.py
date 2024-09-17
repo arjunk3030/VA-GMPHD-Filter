@@ -508,7 +508,6 @@ class GmphdFilter:
     def state_estimation(self, v: GaussianMixture) -> List[np.ndarray]:
         X = []
         Xc = []
-        # TODO: take arg max
         for i in range(len(v.w)):
             if v.w[i] >= 0.5:
                 max_value = max(v.cls[i])

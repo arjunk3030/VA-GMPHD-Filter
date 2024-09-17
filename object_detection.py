@@ -72,5 +72,5 @@ def detect_objects(rgbImage, singleView, model):
         ]
 
         if DEBUG_MODE:
-            view_image.show()
+            view_image.show()  # TODO:L ADD BACK
     return singleView

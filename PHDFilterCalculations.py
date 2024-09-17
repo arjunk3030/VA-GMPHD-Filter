@@ -42,6 +42,51 @@ def get_visible_points(simple_depth_img):
     return visible_points
 
 
+def euler_to_rotation_matrix(angles):
+    Rx = np.array(
+        [
+            [1, 0, 0],
+            [0, np.cos(angles[0]), -np.sin(angles[0])],
+            [0, np.sin(angles[0]), np.cos(angles[0])],
+        ]
+    )
+
+    Ry = np.array(
+        [
+            [np.cos(angles[1]), 0, np.sin(angles[1])],
+            [0, 1, 0],
+            [-np.sin(angles[1]), 0, np.cos(angles[1])],
+        ]
+    )
+
+    Rz = np.array(
+        [
+            [np.cos(angles[2]), -np.sin(angles[2]), 0],
+            [np.sin(angles[2]), np.cos(angles[2]), 0],
+            [0, 0, 1],
+        ]
+    )
+
+    return np.dot(Rz, np.dot(Ry, Rx))
+
+
+# Function to undo the rotation
+def undo_rotation(rotated_mean, euler_angles):
+    # Convert Euler angles to radians
+    euler_angles_rad = np.radians(euler_angles)
+
+    # Get the rotation matrix for the applied rotation
+    rotation_matrix = euler_to_rotation_matrix(euler_angles_rad)
+
+    # Undo the rotation by applying the transpose of the rotation matrix
+    inverse_rotation_matrix = np.transpose(rotation_matrix)
+
+    # Apply the inverse rotation to get the original mean
+    original_mean = np.dot(inverse_rotation_matrix, rotated_mean)
+
+    return original_mean
+
+
 def asymmetric_to_symmetric_rotation(
     true_center,
     offset,
@@ -89,6 +134,55 @@ def asymmetric_to_symmetric_rotation(
     return translation + asymmetric_center
 
 
+def symmetric_to_asymmetric_rotation(
+    asymmetric_center,
+    offset,
+    euler_angles,
+):
+    # Convert Euler angles to rotation matrix
+    def euler_to_rotation_matrix(angles):
+        Rx = np.array(
+            [
+                [1, 0, 0],
+                [0, np.cos(angles[0]), -np.sin(angles[0])],
+                [0, np.sin(angles[0]), np.cos(angles[0])],
+            ]
+        )
+
+        Ry = np.array(
+            [
+                [np.cos(angles[1]), 0, np.sin(angles[1])],
+                [0, 1, 0],
+                [-np.sin(angles[1]), 0, np.cos(angles[1])],
+            ]
+        )
+
+        Rz = np.array(
+            [
+                [np.cos(angles[2]), -np.sin(angles[2]), 0],
+                [np.sin(angles[2]), np.cos(angles[2]), 0],
+                [0, 0, 1],
+            ]
+        )
+
+        return np.dot(Rz, np.dot(Ry, Rx))
+
+    # Convert Euler angles to radians
+    euler_angles_rad = np.radians(euler_angles)
+
+    # Create rotation matrix
+    rotation_matrix = euler_to_rotation_matrix(euler_angles_rad)
+
+    # Calculate the translation (reverse of earlier calculation)
+    rotated_offset = np.dot(rotation_matrix, offset)
+    translation = rotated_offset - offset
+
+    # Reverse the translation to find the true center
+    true_center = asymmetric_center - translation
+
+    return true_center
+
+
 def set_values(geom, mean, cls):
     geom.type = mjtGeom.mjGEOM_MESH
     geom.meshname = Constants.CLS_TO_MESH(cls)
@@ -96,12 +190,13 @@ def set_values(geom, mean, cls):
     true_center = np.array([mean[0], mean[1], 0])
     euler_angles = np.array([0, 0, mean[2]])  # in degrees
     geom.quat = PointEstimation.euler_to_quaternion(0, 0, mean[2])
-    new_pos = asymmetric_to_symmetric_rotation(
-        true_center,
-        Constants.MUJOCO_TO_POSE[cls],
-        euler_angles,
-    )
-    geom.pos = new_pos
+    # new_pos = asymmetric_to_symmetric_rotation(
+    #     true_center,
+    #     Constants.MUJOCO_TO_POSE[cls],
+    #     euler_angles,
+    # )
+    geom.pos = true_center
+    # geom.pos = new_pos
 
 
 def quaternion_multiply(q1, q2):

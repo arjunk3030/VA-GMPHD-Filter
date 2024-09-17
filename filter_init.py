@@ -4,6 +4,7 @@ from Constants import TOTAL_STEPS
 import json
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from ExperimentalResults import ObjectEvaluator
 from gmphd_copy import GmphdFilter, GaussianMixture, clutter_intensity_function
 from PIL import Image
 import PHDFilterCalculations
@@ -12,8 +13,9 @@ from scipy.optimize import linear_sum_assignment
 
 
 class PhdFilter:
-    def __init__(self, ground_truth, object_set):
-        self.ground_truth = ground_truth
+    def __init__(self, ground_truth_objs, ground_truth_types, object_set):
+        self.ground_truth_objs = ground_truth_objs
+        self.ground_truth_types = ground_truth_types
         self.object_set = object_set
         self.gaussian_mixture = GaussianMixture([], [], [], [])
         self.estimated_mean = []
@@ -58,7 +60,7 @@ class PhdFilter:
         # MEASUREMENT MODEL
         # Probability of detection
         model["specs"] = [1, 0.4, 0.6, 0.2]  # 0.5
-        model["alpha"] = 0.9
+        model["alpha"] = 0.85
 
         # Measurement matrix z = Hx + v = N(z; Hx, R)
         model["H"] = I_3  # Since we are now measuring (x, y, z)
@@ -187,7 +189,6 @@ class PhdFilter:
             combined = list(zip(list(estimated_cls), list(estimated_mean)))
             combined.sort(key=lambda x: x[0])
             sorted_cls, sorted_mean = zip(*combined)
-            print(f"sorted mean is: {sorted_mean} and sorted_cls is {sorted_cls}")
 
             self.estimated_mean.append(list(sorted_mean))
             self.estimated_cls.append(list(sorted_cls))
@@ -195,55 +196,11 @@ class PhdFilter:
         print(f"{self.object_set}: {combined}")
         print("Filtration time: " + str(time.time() - a) + " sec")
 
-    def calculate_differences(ground_truth, observed, penalty_for_unmatched=None):
-        # Create a distance matrix between ground truth and observed points
-        distance_matrix = np.linalg.norm(ground_truth[:, np.newaxis] - observed, axis=2)
-
-        # Solve the assignment problem
-        row_ind, col_ind = linear_sum_assignment(distance_matrix)
-
-        # Calculate the differences for matched points
-        matched_differences = ground_truth[row_ind] - observed[col_ind]
-
-        unmatched_ground_truth = np.setdiff1d(np.arange(len(ground_truth)), row_ind)
-        unmatched_observed = np.setdiff1d(np.arange(len(observed)), col_ind)
-
-        if penalty_for_unmatched is not None:
-            # Apply penalties for unmatched points
-            unmatched_differences = []
-            for i in unmatched_ground_truth:
-                unmatched_differences.append(
-                    np.full_like(ground_truth[i], penalty_for_unmatched)
-                )
-
-            for i in unmatched_observed:
-                unmatched_differences.append(
-                    np.full_like(observed[i], penalty_for_unmatched)
-                )
-
-            unmatched_differences = np.array(unmatched_differences)
-        else:
-            unmatched_differences = np.array([]).reshape(0, ground_truth.shape[1])
-
-        # Combine matched and unmatched differences
-        all_differences = np.vstack([matched_differences, unmatched_differences])
-
-        return (
-            all_differences,
-            row_ind,
-            col_ind,
-            unmatched_ground_truth,
-            unmatched_observed,
-        )
-
     def outputFilter(self):
         if len(self.estimated_mean) == 0:
             print("no estimated states")
             return [], []
 
-        print(
-            f"estimated is {self.estimated_mean} and estimated cls is {self.estimated_cls}"
-        )
         tracks_plot = []
 
         # Plot measurements, true trajectories and estimations
@@ -284,14 +241,10 @@ class PhdFilter:
             wrap=True,
         )
 
-        # x_list = [object[0][0] for object in self.ground_truth]
-        # true_x = [x_list[:] for _ in range(TOTAL_STEPS)]
-
-        # y_list = [point[0][1] for point in self.ground_truth]
-        # true_y = [y_list[:] for _ in range(TOTAL_STEPS)]
-
         true_times = [
-            i for i in range(0, TOTAL_STEPS) for _ in range(len(self.ground_truth))
+            i
+            for i in range(0, TOTAL_STEPS)
+            for _ in range(len(self.ground_truth_types))
         ]
 
         fig = plt.figure()
@@ -325,7 +278,7 @@ class PhdFilter:
         # Load the saved image using PIL
         pil_image = Image.open(image_path)
 
-        pil_image.show()
+        pil_image.show()  # //TODO ADD BACK
 
         # Display the plot
         # plt.show()
@@ -358,11 +311,38 @@ class PhdFilter:
         pil_image.show()
         plt.show()
 
-        # print(f"Ground turth is {self.ground_truth}")
-        # differences, row_ind, col_ind, unmatched_gt, unmatched_obs = (
-        #     self.calculate_differences(
-        #         np.array(self.ground_truth), np.array(self.estimated_mean[-1])
-        #     )
-        # )
-        # print("Differences:", differences)
         return self.estimated_mean[-1], self.estimated_cls[-1]
+
+    def evaluate(self):
+        print(f"\nINFORMATION FOR filter {self.object_set}:")
+        print("----------------------------------")
+        if len(self.estimated_mean) == 0:
+            print("no estimated states")
+            return
+
+        evaluator = ObjectEvaluator(
+            self.estimated_mean[-1],
+            self.estimated_cls[-1],
+            self.ground_truth_objs,
+            self.ground_truth_types,
+        )
+
+        filtered_count, ground_truth_count = evaluator.compare_object_count()
+        print(
+            f"Filtered count: {filtered_count}, Ground truth count: {ground_truth_count}"
+        )
+
+        # Classification accuracy
+        correct_classifications, total_matched = evaluator.classify_accuracy()
+        classification_accuracy = (
+            correct_classifications / total_matched if total_matched else 0
+        )
+        print(f"Classification Accuracy: {classification_accuracy * 100:.2f}%")
+
+        # Distance error
+        avg_dist_error = evaluator.calc_distance_error()
+        print(f"Average Distance Error: {avg_dist_error:.2f}")
+
+        # Pose error
+        avg_pose_error = evaluator.calc_pose_error()
+        print(f"Average Pose Error: {avg_pose_error:.2f}\n")

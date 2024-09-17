@@ -8,6 +8,7 @@ from Constants import (
     MUJOCO_TO_POSE,
     OBJECT_SETS,
     SPEED,
+    TABLE_DELTAS,
     THRESHOLD,
 )
 from DenseProcessor import DenseProcessor
@@ -328,8 +329,9 @@ def step_robot(
     return all_results
 
 
-def stateUpdates(model, data, object_set):
-    ground_truth = []
+def stateUpdates(model, data, table_name, object_set):
+    ground_truth_objs = []
+    ground_truth_types = []
     for geom in object_set:
         newQuat = PointEstimation.euler_to_quaternion(0, 0, geom[3])
         originalZ = model.geom(geom[0]).pos[2]
@@ -337,26 +339,31 @@ def stateUpdates(model, data, object_set):
             newQuat, model.geom(geom[0]).quat
         )
         model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
-        ground_truth.append(
+        ground_truth_types.append(geom[1])
+        delta_locs = np.array(
             [
-                geom[1],
-                round(model.geom(geom[0]).pos[0], 3),
-                round(model.geom(geom[0]).pos[1], 3),
+                model.geom(geom[0]).pos[0],
+                model.geom(geom[0]).pos[1],
             ]
-        )
+        ) + np.array(TABLE_DELTAS[table_name])
+
+        ground_truth_objs.append([delta_locs[0], delta_locs[1], geom[3]])
+
         # createGeom(
         #     viewer.user_scn,
         #     [
-        #         model.geom(geom[0]).pos[0] + 0.492,
-        #         model.geom(geom[0]).pos[1] + 1.385,
-        #         1.02,
+        #         new_pos[0],
+        #         new_pos[1],
+        #         1.3,
         #     ],
-        #     [random.random(), random.random(), random.random(), 1],
+        #     [1, 1, 1, 1],
         # )
 
     mujoco.mj_step(model, data)
     viewer.sync()
-    return ground_truth
+    combined = list(zip(list(ground_truth_types), list(ground_truth_objs)))
+    combined.sort(key=lambda x: x[0])
+    return zip(*combined)
 
 
 def progress_geoms(visible):
@@ -398,9 +405,12 @@ if __name__ == "__main__":
     filters = {}
     with mujoco.viewer.launch_passive(model, data) as viewer:
         for object_name, object_set in OBJECT_SETS.items():
-            gt = stateUpdates(model, data, object_set)
-            gt.sort(key=lambda x: x[0])
-            filters[object_name] = PhdFilter(gt, object_name)
+            ground_truth_types, ground_truth_objs = stateUpdates(
+                model, data, object_name, object_set
+            )
+            filters[object_name] = PhdFilter(
+                ground_truth_objs, ground_truth_types, object_name
+            )
 
         scene_option = mujoco.MjvOption()
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
@@ -498,3 +508,6 @@ if __name__ == "__main__":
                         )
                     mujoco.mj_step(model, data)
                     viewer.sync()
+            if x == "e":
+                for filter in filters.values():
+                    filter.evaluate()
