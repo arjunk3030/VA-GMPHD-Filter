@@ -5,7 +5,7 @@ import json
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from ExperimentalResults import ObjectEvaluator
-from gmphd_copy import GmphdFilter, GaussianMixture, clutter_intensity_function
+from gmphd_no_p_v import GmphdFilter, GaussianMixture, clutter_intensity_function
 from PIL import Image
 import PHDFilterCalculations
 import Constants
@@ -20,11 +20,11 @@ class PhdFilter:
         self.gaussian_mixture = GaussianMixture([], [], [], [])
         self.estimated_mean = []
         self.estimated_cls = []
-        self.model = self.exp_2_model()
+        self.model = self.our_filter_parameters()
         self.gmphd = GmphdFilter(self.model)
         self.all_measurements = []
 
-    def exp_2_model(self):
+    def our_filter_parameters(self):
         model = {}
 
         # Sampling time, time step duration
@@ -60,7 +60,7 @@ class PhdFilter:
         # MEASUREMENT MODEL
         # Probability of detection
         model["specs"] = [1, 0.4, 0.6, 0.2]  # 0.5
-        model["alpha"] = 0.85
+        model["alpha"] = 0.9
 
         # Measurement matrix z = Hx + v = N(z; Hx, R)
         model["H"] = I_3  # Since we are now measuring (x, y, z)
@@ -278,7 +278,7 @@ class PhdFilter:
         # Load the saved image using PIL
         pil_image = Image.open(image_path)
 
-        pil_image.show()  # //TODO ADD BACK
+        # pil_image.show()  # //TODO ADD BACK
 
         # Display the plot
         # plt.show()
