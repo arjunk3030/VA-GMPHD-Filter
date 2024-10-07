@@ -71,6 +71,6 @@ def detect_objects(rgbImage, singleView, model):
             [x, y, z, bb, cls] for x, y, z, bb, cls in zip(xs, ys, zs, bbs, clss)
         ]
 
-        # if DEBUG_MODE:
-        # view_image.show()  # TODO:L ADD BACK
+        if DEBUG_MODE:
+            view_image.show()  # TODO:L ADD BACK
     return singleView

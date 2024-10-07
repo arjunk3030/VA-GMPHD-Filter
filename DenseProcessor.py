@@ -1,10 +1,8 @@
 import argparse
 import logging
-import os
 import copy
 import numpy as np
 from PIL import Image
-import numpy.ma as ma
 from Constants import DEBUG_MODE
 import torch
 from torch.autograd import Variable
@@ -17,8 +15,6 @@ from DFP.lib.transformations import (
 from torchvision import transforms
 import random
 
-import sys
-import os
 import mujoco
 import mujoco.viewer as viewer
 

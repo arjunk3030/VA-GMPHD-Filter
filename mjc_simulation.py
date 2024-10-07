@@ -12,31 +12,24 @@ from Constants import (
     THRESHOLD,
 )
 from DenseProcessor import DenseProcessor
+from FilterProcessing import FilterProcessing
 from TrajectorySettings import TRAJECTORY_PATH
-from filter_init import PhdFilter
 
-# from ModelProcessor import ModelProcessor
 import mujoco
 import mujoco.viewer as viewer
 import time
-import itertools
 import numpy as np
 import math
-import json
 import logging
-from scipy.interpolate import CubicSpline
-from scipy.interpolate import make_interp_spline
 from scipy.interpolate import interp1d
 
 from PIL import Image
 from object_detection import detect_objects
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 import ssl
 import PointEstimation
 import Util
 import PHDFilterCalculations
-from ultralytics import YOLO
 import torch
 
 ssl._create_default_https_context = ssl._create_stdlib_context
@@ -165,25 +158,6 @@ def processView(
     # )
 
 
-# def turn_to_angle(target_angle_degrees, data):
-#     def calculate_rotate_signal(current_angle, desired_angle, kp=0.1):
-#         angle_error = (desired_angle - current_angle + np.pi) % (2 * np.pi) - np.pi
-#         angular_control = kp * angle_error
-
-#         return angular_control
-
-#     # target_angle_radians = np.radians(target_angle_degrees)
-
-#     current_angle = data.qpos[2]
-
-#     # angle_diff = target_angle_radians - current_angle
-#     # angle_diff = (angle_diff + np.pi) % (2 * np.pi) - np.pi
-
-#     # rotation_control = 5.0 * angle_diff
-#     data.qpos[2] = 1.5
-#     data.ctrl[2] = 0
-
-
 def turn_to_angle(target_angle_degrees, data):
     data.qpos[2] = target_angle_degrees
     data.ctrl[2] = target_angle_degrees
@@ -308,11 +282,11 @@ def step_robot(
         depth_img[depth_img >= THRESHOLD] = 0
         if DEBUG_MODE:
             display_img = numpy2pil(rgb_img)
-            Image.fromarray(depth_img, mode="L").save(
-                f"debug_images/depth_{current_step}.png"
-            )
+            # Image.fromarray(depth_img, mode="L").save(
+            #     f"debug_images/depth_{current_step}.png"
+            # )
             # Image.fromarray(depth_img, mode="L").show()
-            Image.fromarray(rgb_img).save(f"debug_images/rgb_{current_step}.png")
+            # Image.fromarray(rgb_img).save(f"debug_images/rgb_{current_step}.png")
 
         singleView = {
             "step": current_step,
@@ -408,7 +382,7 @@ if __name__ == "__main__":
             ground_truth_types, ground_truth_objs = stateUpdates(
                 model, data, object_name, object_set
             )
-            filters[object_name] = PhdFilter(
+            filters[object_name] = FilterProcessing(
                 ground_truth_objs, ground_truth_types, object_name
             )
 
@@ -450,6 +424,7 @@ if __name__ == "__main__":
         data.ctrl[5] = 0.5
         data.ctrl[7] = 3
         model.vis.global_.fovy = model.cam(CAMERA_NAME).fovy[0]
+
         while viewer.is_running():
             x = input("Click s to step robot, click c to step through all: ")
             if x == "q" or x == "Q":

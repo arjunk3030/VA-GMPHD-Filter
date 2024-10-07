@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+CURRENT_FILTER = "VA_GMPHD"
 TOTAL_STEPS = 8
 SPEED = 0.5
 DEBUG_MODE = True
