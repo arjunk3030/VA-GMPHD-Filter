@@ -41,7 +41,7 @@ def createGeom(scene: mujoco.MjvScene, location, rgba_given):
 def set_values(geom, mean, cls):
     geom.type = mjtGeom.mjGEOM_MESH
     geom.meshname = CLS_TO_MESH(cls)
-    # geom.material = CLS_TO_MATERIAL(cls)  # noqa: F821
+    geom.material = CLS_TO_MATERIAL(cls)  # noqa: F821
     true_center = np.array([mean[0], mean[1], 0])
     euler_angles = np.array([0, 0, mean[2]])  # in degrees
     geom.quat = PointEstimation.euler_to_quaternion(0, 0, mean[2])
@@ -51,7 +51,7 @@ def set_values(geom, mean, cls):
         euler_angles,
     )
     geom.pos = new_pos
-    geom.rgba = [0.471, 0.322, 0.769, 0.35]  # light purple color + 0.2 translucency
+    # geom.rgba = [0.471, 0.322, 0.769, 0.35]  # light purple color + 0.2 translucency
 
 
 # def set_values(geom, mean, cls):
@@ -115,15 +115,13 @@ def stateUpdates(model, data, object_set):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     list2 = [
-        (1, [-0.020747, 0.013032, 178.64]),
-        (1, [-0.027641, -0.1428, 126.86]),
-        (3, [0.1882, -0.094235, 106.95]),
-        (3, [0.10792, -0.072012, 119.04]),
-        (4, [0.094584, 0.032823, 163.03]),
-        (4, [0.08651, -0.19876, 150.64]),
-        (4, [0.16514, -0.18366, 162.78]),
-        (12, [0.27817, 0.028093, 132.16]),
-        (12, [0.31764, -0.16946, 137.73]),
+        (1, [-1.4259, 0.23723, 82.601]),
+        (2, [-1.3515, 0.23167, 165.54]),
+        (3, [-1.5652, 0.42815, 34.424]),
+        (3, [-1.5824, 0.1991, 45.047]),
+        (3, [-1.3848, 0.17761, 37.771]),
+        (8, [-1.348, 0.44467, 104.63]),
+        (12, [-1.4817, 0.64852, 67.763]),
     ]
 
     # list3 = [
@@ -169,12 +167,11 @@ if __name__ == "__main__":
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         viewer.cam.lookat[:] = [0.0, 0.0, 0.0]  # Point of interest (x, y, z)
-        viewer.cam.azimuth = 127.66019208715579  # Horizontal angle (degrees)
-        viewer.cam.elevation = -67.63532110091747  # Vertical angle (degrees)
-        viewer.cam.distance = 3.169448814604967  # Distance from the point of interest
-
-        for object_name, object_set in OBJECT_SETS.items():
-            stateUpdates(model, data, object_set)
+        viewer.cam.azimuth = -14.808629587156048  # Horizontal angle (degrees)
+        viewer.cam.elevation = -39.8995126146786  # Vertical angle (degrees)
+        viewer.cam.distance = 2.864629740942742  # Distance from the point of interest
+        # for object_name, object_set in OBJECT_SETS.items():
+        #     stateUpdates(model, data, object_set)
 
         scene_option = mujoco.MjvOption()
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
