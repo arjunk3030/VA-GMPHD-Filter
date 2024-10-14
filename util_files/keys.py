@@ -1,0 +1,7 @@
+OBJECTS_KEY = "objects"
+DEPTH_IMG_KEY = "depth_img"
+RGB_IMG_KEY = "rgb_img"
+CAMERA_MATRIX_KEY = "camera_matrix"
+ROTATION_KEY = "rotation"
+TRANSLATION_KEY = "translation"
+STEP_KEY = "step"

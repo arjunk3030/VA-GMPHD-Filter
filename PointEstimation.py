@@ -1,25 +1,17 @@
 import math
 import numpy as np
-from Constants import CAMERA_HEIGHT, CAMERA_WIDTH, TABLE_RANGES
-import mujoco
-import Constants
+from util_files.keys import ROTATION_KEY, TRANSLATION_KEY
+from util_files.object_parameters import FLOOR_HEIGHT, TABLE_SIZES
+from util_files.transformation_utils import quaternion_to_rotation_matrix
+from logger_setup import logger
 
 
 def compute_rotation_matrix(r):
     camera = r.scene.camera[1]
-    # camera_right = np.cross(camera.up, camera.forward)
-    # return np.column_stack((camera_right, camera.up, camera.forward))
     forward = np.array(camera.forward, dtype=float)
 
     up = np.array(camera.up, dtype=float)
-
-    # Calculate right vector
     right = np.cross(-up, forward)
-
-    # # Recalculate up vector to ensure orthogonality
-    # up = np.cross(forward, right)
-
-    # Construct 3x3 rotation matrix
     rotation_matrix = np.column_stack((right, -up, forward))
 
     return rotation_matrix
@@ -32,16 +24,6 @@ def compute_translation_matrix(r):
     avg_position = np.mean(positions, axis=0)
 
     return avg_position.tolist()
-
-
-def camera_intrinsic(model):
-    fov = model.vis.global_.fovy  # Fixed FOV angle
-    width = CAMERA_WIDTH
-    height = CAMERA_HEIGHT
-
-    fW = 0.5 * height / math.tan(fov * math.pi / 360)
-    fH = 0.5 * height / math.tan(fov * math.pi / 360)
-    return np.array(((fW, 0, width / 2), (0, fH, height / 2), (0, 0, 1)))
 
 
 def image_to_camera_coordinates(x, y, depth, K):
@@ -61,130 +43,15 @@ def camera_to_image(x, y, depth, K):
 
 def camera_to_world(camera_matrix, point_camera):
     return (
-        np.dot(camera_matrix["rotation"], point_camera) + camera_matrix["translation"]
+        np.dot(camera_matrix[ROTATION_KEY], point_camera)
+        + camera_matrix[TRANSLATION_KEY]
     )
 
 
 def world_to_camera(camera_matrix, point_world):
-    return camera_matrix["rotation"].T @ (point_world - camera_matrix["translation"])
-
-
-def rotation_matrix_to_quaternion(R):
-    trace = np.trace(R)
-
-    if trace > 0:
-        s = 0.5 / np.sqrt(trace + 1.0)
-        w = 0.25 / s
-        x = (R[2, 1] - R[1, 2]) * s
-        y = (R[0, 2] - R[2, 0]) * s
-        z = (R[1, 0] - R[0, 1]) * s
-    else:
-        if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
-            w = (R[2, 1] - R[1, 2]) / s
-            x = 0.25 * s
-            y = (R[0, 1] + R[1, 0]) / s
-            z = (R[0, 2] + R[2, 0]) / s
-        elif R[1, 1] > R[2, 2]:
-            s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
-            w = (R[0, 2] - R[2, 0]) / s
-            x = (R[0, 1] + R[1, 0]) / s
-            y = 0.25 * s
-            z = (R[1, 2] + R[2, 1]) / s
-        else:
-            s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
-            w = (R[1, 0] - R[0, 1]) / s
-            x = (R[0, 2] + R[2, 0]) / s
-            y = (R[1, 2] + R[2, 1]) / s
-            z = 0.25 * s
-
-    return np.array([w, x, y, z])
-
-
-def quaternion_to_rotation_matrix(q):
-    w, x, y, z = q
-    return np.array(
-        [
-            [
-                1 - 2 * y**2 - 2 * z**2,
-                2 * x * y - 2 * w * z,
-                2 * x * z + 2 * w * y,
-            ],
-            [
-                2 * x * y + 2 * w * z,
-                1 - 2 * x**2 - 2 * z**2,
-                2 * y * z - 2 * w * x,
-            ],
-            [
-                2 * x * z - 2 * w * y,
-                2 * y * z + 2 * w * x,
-                1 - 2 * x**2 - 2 * y**2,
-            ],
-        ]
+    return camera_matrix[ROTATION_KEY].T @ (
+        point_world - camera_matrix[TRANSLATION_KEY]
     )
-
-
-def quaternion_to_euler(quat):
-    w, x, y, z = quat
-
-    # Roll (x-axis rotation)
-    sinr_cosp = 2 * (w * x + y * z)
-    cosr_cosp = 1 - 2 * (x * x + y * y)
-    roll = np.arctan2(sinr_cosp, cosr_cosp)
-
-    # Pitch (y-axis rotation)
-    sinp = 2 * (w * y - z * x)
-    if abs(sinp) >= 1:
-        pitch = np.sign(sinp) * np.pi / 2  # use 90 degrees if out of range
-    else:
-        pitch = np.arcsin(sinp)
-
-    # Yaw (z-axis rotation)
-    siny_cosp = 2 * (w * z + x * y)
-    cosy_cosp = 1 - 2 * (y * y + z * z)
-    yaw = np.arctan2(siny_cosp, cosy_cosp)
-
-    return [roll, pitch, yaw]
-
-
-def euler_to_quaternion(roll, pitch, yaw):
-    # Convert angles from degrees to radians
-    roll_rad = np.radians(roll)
-    pitch_rad = np.radians(pitch)
-    yaw_rad = np.radians(yaw)
-
-    # Compute the half angles
-    cy = np.cos(yaw_rad * 0.5)
-    sy = np.sin(yaw_rad * 0.5)
-    cp = np.cos(pitch_rad * 0.5)
-    sp = np.sin(pitch_rad * 0.5)
-    cr = np.cos(roll_rad * 0.5)
-    sr = np.sin(roll_rad * 0.5)
-
-    # Compute the quaternion components
-    w = cr * cp * cy + sr * sp * sy
-    x = sr * cp * cy - cr * sp * sy
-    y = cr * sp * cy + sr * cp * sy
-    z = cr * cp * sy - sr * sp * cy
-
-    return np.array([w, x, y, z])
-
-
-def rotation_matrix_to_euler(R):
-    sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
-
-    singular = sy < 1e-6
-
-    if not singular:
-        x = np.arctan2(R[2, 1], R[2, 2])
-        y = np.arctan2(-R[2, 0], sy)
-        z = np.arctan2(R[1, 0], R[0, 0])
-    else:
-        x = np.arctan2(-R[1, 2], R[1, 1])
-        y = np.arctan2(-R[2, 0], sy)
-        z = 0
-
-    return np.array([x, y, z])
 
 
 def rotation_matrix_to_z_rotation(R):
@@ -197,7 +64,6 @@ def rotation_matrix_to_z_rotation(R):
     Returns:
     float: The z-axis rotation angle in degrees.
     """
-    # Extract the elements of the rotation matrix
     r11, r12, r13 = R[0, 0], R[0, 1], R[0, 2]
     r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
     r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
@@ -212,19 +78,15 @@ def rotation_matrix_to_z_rotation(R):
 def calculateAngle(q, rotation):
     q = [q[0], q[1], q[2], q[3]]
     new_rot = np.dot(rotation, quaternion_to_rotation_matrix(q))
-    # new_quat = R.from_matrix(new_rot).as_quat()
-    # new_quat = [new_quat[3], new_quat[0], new_quat[1], new_quat[2]]
-    # last_rotation = np.degrees(rotation_matrix_to_euler(new_rot))[2]
     last_rotation = rotation_matrix_to_z_rotation((new_rot))
-    print(f"Rotation on the z axis is: f{last_rotation}")
-    # print(f"Final quat is: f{rotation_matrix_to_quaternion(new_rot)}")
+    logger.info(f"Rotation on the z axis is: f{last_rotation}")
     return last_rotation
 
 
 # Region growing
 def distance_3d(point1, point2, camera_matrix):
-    rotation_matrix = camera_matrix["rotation"]
-    translation = camera_matrix["translation"]
+    rotation_matrix = camera_matrix[ROTATION_KEY]
+    translation = camera_matrix[TRANSLATION_KEY]
 
     point1_world = rotation_matrix @ point1 + translation
     point2_world = rotation_matrix @ point2 + translation
@@ -234,7 +96,7 @@ def distance_3d(point1, point2, camera_matrix):
 
 def near_ground(z):
     threshold = 0.006
-    if abs(abs(z) - Constants.FLOOR_HEIGHT) < threshold:
+    if abs(abs(z) - FLOOR_HEIGHT) < threshold:
         return True
     if abs(z) < threshold:
         return True
@@ -246,7 +108,7 @@ def createChooseMask(
     rgbImage,
     camera_matrix,
     seed,
-    model,
+    intrinsic,
     tolerance_depth=0.01,
     tolerance_color=130,
 ):
@@ -257,7 +119,6 @@ def createChooseMask(
     stack = [seed]
     segmented[seed[1], seed[0]] = 255
 
-    intrinsic = camera_intrinsic(model)
     while stack:
         x, y = stack.pop()
         current_3d = image_to_camera_coordinates(
@@ -307,13 +168,10 @@ def evaluate_mask(mask, bounding_box):
     return np.sum(cropped_mask == 255)
 
 
-def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, model):
-    center_x, center_y, center_z, radius_x, radius_y, radius_z = TABLE_RANGES[
-        object_set
-    ]
+def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, intrinsic):
+    center_x, center_y, center_z, radius_x, radius_y, radius_z = TABLE_SIZES[object_set]
 
     # Convert the 2D point to camera coordinates
-    intrinsic = camera_intrinsic(model)
     point_3d_camera = image_to_camera_coordinates(
         point_2d[0],
         point_2d[1],
@@ -332,7 +190,7 @@ def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, model):
     )
 
 
-def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, model):
+def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, intrinsic):
     x, y, width, height = bounding_box
 
     initial_points = [
@@ -351,7 +209,7 @@ def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, model):
             rgbImage,
             camera_matrix,
             (round(seed[0]), round(seed[1])),
-            model,
+            intrinsic,
         )
         score = evaluate_mask(segmentation, bounding_box)
         if score > best_score:

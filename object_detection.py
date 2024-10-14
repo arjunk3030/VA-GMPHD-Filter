@@ -1,10 +1,8 @@
 import logging
-from queue import Queue
-from Constants import DEBUG_MODE
-import cv2
-import numpy as np
-from PIL import Image, ImageDraw, ImageOps
-import Constants
+from PIL import Image, ImageDraw
+from util_files.config_params import DEBUG_MODE
+from util_files.keys import DEPTH_IMG_KEY, OBJECTS_KEY, RGB_IMG_KEY, STEP_KEY
+from util_files.object_parameters import ID_TO_INDEX
 
 
 def transform_background_color(image_np, color=(255, 255, 255, 0)):
@@ -26,34 +24,34 @@ def transform_background_color(image_np, color=(255, 255, 255, 0)):
     return image_pil
 
 
-def detect_objects(rgbImage, singleView, model):
-    def calculateCls(model, class_idx):
-        return Constants.ID_TO_INDEX[int((model.names[int(class_idx)])[:3])]
+def detect_objects(rgbImage, single_view, model):
+    def calculate_cls(model, class_idx):
+        return ID_TO_INDEX[int((model.names[int(class_idx)])[:3])]
 
     rgb_image = transform_background_color(rgbImage)
 
     result = model(rgb_image)
 
-    xs, ys, zs, bbs, clss = [], [], [], [], []
+    xs, ys, zs, bounded_boxes, clss = [], [], [], [], []
 
     view_image = Image.fromarray((result.render()[0]))
     for j, det in enumerate(result.xywh):
         for *box, class_idx in det:
-            clss.append(calculateCls(model, class_idx))
+            clss.append(calculate_cls(model, class_idx))
 
             x_center, y_center, width, height, conf = box
             x_center = x_center.item()
             y_center = y_center.item()
             width = width.item()
             height = height.item()
-            bbs.append([x_center, y_center, width, height])
+            bounded_boxes.append([x_center, y_center, width, height])
 
             logging.info(
                 "A %s detected at location (%s, %s) on step %d",
                 model.names[int(class_idx)],
                 x_center,
                 y_center,
-                singleView["step"],
+                single_view[STEP_KEY],
             )
 
             draw = ImageDraw.Draw(view_image)
@@ -64,13 +62,14 @@ def detect_objects(rgbImage, singleView, model):
 
             xs.append(x_center)
             ys.append(y_center)
-            zs.append(singleView["depth_img"][round(y_center), round(x_center)])
+            zs.append(single_view[DEPTH_IMG_KEY][round(y_center), round(x_center)])
 
-        singleView["rgb_img"] = rgb_image
-        singleView["objects"] = [
-            [x, y, z, bb, cls] for x, y, z, bb, cls in zip(xs, ys, zs, bbs, clss)
+        single_view[RGB_IMG_KEY] = rgb_image
+        single_view[OBJECTS_KEY] = [
+            [x, y, z, bounded_box, cls]
+            for x, y, z, bounded_box, cls in zip(xs, ys, zs, bounded_boxes, clss)
         ]
 
         # if DEBUG_MODE:
         #     view_image.show()  # TODO:L ADD BACK
-    return singleView
+    return single_view

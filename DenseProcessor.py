@@ -3,7 +3,7 @@ import logging
 import copy
 import numpy as np
 from PIL import Image
-from Constants import DEBUG_MODE
+from util_files.config_params import DEBUG_MODE
 import torch
 from torch.autograd import Variable
 import torchvision.transforms as transforms
@@ -80,7 +80,7 @@ class DenseProcessor:
 
         return rmin, rmax, cmin, cmax
 
-    def process_data(self, bounded_box, id, mask, scene, model, singleView):
+    def process_data(self, bounded_box, id, mask):
         norm = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         )
@@ -90,23 +90,7 @@ class DenseProcessor:
             img_masked = np.array(self.img)[:, :, :3]
             img_masked = img_masked[rmin:rmax, cmin:cmax, :]
 
-            if DEBUG_MODE:
-                img_pil = Image.fromarray(np.uint8(img_masked))
-                # img_pil.show()
-
-            # mask = ma.getmaskarray(ma.masked_not_equal(self.depth, 0))
             choose = mask[rmin:rmax, cmin:cmax].flatten().nonzero()[0]
-
-            # mask = self.createAbsoluteMask(self.seg_mask[rmin:rmax, cmin:cmax])
-            # mask = mask.astype(bool)
-
-            # mask2 = ma.getmaskarray(ma.masked_not_equal(self.depth, 0))
-            # cropped_mask2 = mask2[rmin:rmax, cmin:cmax]
-            # cropped_mask2 = cropped_mask2.astype(bool)
-
-            # merged_mask = cropped_mask2
-            # Image.fromarray(merged_mask.astype(np.uint8) * 255).show()
-            # choose = merged_mask.flatten().nonzero()[0]
 
             if len(choose) > self.num_points:
                 c_mask = np.zeros(len(choose), dtype=int)
@@ -154,19 +138,6 @@ class DenseProcessor:
             img_masked = Variable(img_masked)
             index = Variable(index)
 
-            # Loop through each point in the cloud and call the pp function
-            # cloud_np = cloud.cpu().detach().numpy()
-            # model.geom("geo3").rgba = [1, 1, 1, 0.4]
-            # for point in cloud_np:
-            #     x, y, z = point
-
-            #     createGeom(
-            #         scene,
-            #         self.cam_scale
-            #         * np.dot(singleView["camera_matrix"]["rotation"], [x, y, z])
-            #         + singleView["camera_matrix"]["translation"],
-            #     )
-
             cloud = cloud.view(1, self.num_points, 3)
             img_masked = img_masked.view(
                 1, 3, img_masked.size()[1], img_masked.size()[2]
@@ -179,7 +150,7 @@ class DenseProcessor:
 
             pred_c = pred_c.view(self.bs, self.num_points)
             how_max, which_max = torch.max(pred_c, 1)
-            logging.info("Confidence is 6d pose estimation: %f", how_max)
+            # logging.info("Confidence is 6d pose estimation: %f", how_max)
             pred_t = pred_t.view(self.bs * self.num_points, 1, 3)
             points = cloud.view(self.bs * self.num_points, 1, 3)
 
@@ -223,7 +194,7 @@ class DenseProcessor:
                 my_r = my_r_final
                 my_t = my_t_final
         except ZeroDivisionError:
-            logging.log("error")
+            logging.log("Error preprocessing data: ZeroDivisionError")
             my_pred.append([-1.0 for i in range(7)])
         return my_r_final, (my_t_final * self.cam_scale)
 
