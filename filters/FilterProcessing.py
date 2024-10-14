@@ -156,7 +156,7 @@ class FilterProcessing:
         plt.legend()
         plt.grid(True)
 
-        plt.savefig(f"{axis_label.lower()}_plot.png")
+        plt.savefig(f"testing/graphs/{axis_label.lower()}_plot.png")
         plt.close()
 
     def plot_misclassification_rate(self, misclassification_rates, total_time, T_s):
