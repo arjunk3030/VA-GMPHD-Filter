@@ -1,4 +1,4 @@
-# Visibility-Aware GMPHD Filter
+# Visibility-Aware Filter (VA-GMPHD)
 
 This repository contains the official code associated with our paper on the **VA-GMPHD (Visibility Aware - Gaussian Mixture Probability Hypothesis Density)** filter. The VA-GMPHD filter enhances object detection and task planning, especially in complex, occluded environments. The project runs on the MuJoCo framework and includes tools to evaluate and compare filtering algorithms on different robot trajectories and object settings.
 
