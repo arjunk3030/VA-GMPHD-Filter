@@ -39,7 +39,7 @@ p - Print filter results
 e - Evaluate filters
 q - Quit the program
 ```
-Before running the file, please update the following variables/files as needed:
+Before running the file, please update the following variables/files as needed: <br>
 **Debug Mode**: Set the DEBUG_MODE constant (util_files/config_params) <br>
 **Environment**: Create the necessary objects set in the environment and set the environment file in ENV_PATH constant (util_files/object_parameters). The pose of each of the objects cannot be set in the environment file but rather in the OBJECT_SETS constant (util_files/object_parameters) following the given template.  <br>
 **Filter**: Set the filter used via the CURRENT_FILTER constant (util_files/config_params) <br>
