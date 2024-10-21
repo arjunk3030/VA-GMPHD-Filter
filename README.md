@@ -40,10 +40,10 @@ e - Evaluate filters
 q - Quit the program
 ```
 Before running the file, please update the following variables/files as needed:
-**Debug Mode**: Set the DEBUG_MODE constant (util_files/config_params)
-**Environment**: Create the necessary objects set in the environment and set the environment file in ENV_PATH constant (util_files/object_parameters). The pose of each of the objects cannot be set in the environment file but rather in the OBJECT_SETS constant (util_files/object_parameters) following the given template.
-**Filter**: Set the filter used via the CURRENT_FILTER constant (util_files/config_params)
-**Trajectory**: Set the robot's trajectory in util_files/TrajectorySettings. Enter each of the robot's viewpoints and the object set it should view at that point following the given template
+**Debug Mode**: Set the DEBUG_MODE constant (util_files/config_params) <br>
+**Environment**: Create the necessary objects set in the environment and set the environment file in ENV_PATH constant (util_files/object_parameters). The pose of each of the objects cannot be set in the environment file but rather in the OBJECT_SETS constant (util_files/object_parameters) following the given template.  <br>
+**Filter**: Set the filter used via the CURRENT_FILTER constant (util_files/config_params) <br>
+**Trajectory**: Set the robot's trajectory in util_files/TrajectorySettings. Enter each of the robot's viewpoints and the object set it should view at that point following the given template <br>
 
 2. **`testing/simulate_results.py`**: This file plots the simulated results, comparing the trajectory and filtering algorithms with the actual results.
 
