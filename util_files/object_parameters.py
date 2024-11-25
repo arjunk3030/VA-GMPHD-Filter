@@ -2,12 +2,20 @@ from collections import defaultdict
 
 THRESHOLD = 9
 
-
 CAMERA_NAME = "frontview"
 
+ENV_PATH = "environment_assets/EXP2_scene.xml"
+
 TABLE_SIZES = {
-    "objects1": [0.492, 1.385, 1, 0.7, 0.4, 1],
-    "objects2": [0.1, -0.1, 1, 0.6, 0.4, 1.5],  # center
+    "objects1": [
+        0.492,
+        1.385,
+        1,
+        0.7,
+        0.4,
+        1,
+    ],  # x center, y center, z center, x half-length, y half-length, z half-length
+    "objects2": [0.1, -0.1, 1, 0.6, 0.4, 1.5],
     "objects3": [-1.565, 0.3, 1, 0.4, 0.7, 1],
 }
 
@@ -53,7 +61,7 @@ OBJECT_SETS = {
         ["objects3_geo10", 12, [0.08, 0.35], 23],
     ],
 }
-FLOOR_NAME = "floor0"
+
 FLOOR_HEIGHT = 1.1625
 
 ID_TO_INDEX = {
@@ -112,18 +120,3 @@ MUJOCO_TO_POSE = defaultdict(
         15: [-0.02, 0.015, 0],
     },
 )
-# MUJOCO_TO_POSE = defaultdict(
-#     lambda: [0.012, 0.002, 0.000],
-#     {
-#         1: [0.013, 0.015, 0.000],
-#         2: [0.010, 0.018, 0.000],
-#         3: [0.010, -0.082, 0.000],
-#         4: [0.017, 0.022, 0.000],
-#         8: [0.032, 0.027, 0.000],
-#         9: [0.015, 0.000, 0.000],
-#         10: [0.013, -0.031, 0.000],
-#         12: [0.015, 0.048, 0.000],
-#         13: [0.020, -0.014, 0.000],
-#         15: [-0.020, 0.015, 0.000],
-#     },
-# )

@@ -3,7 +3,7 @@ from filters.NOV_GMPHD.NOV_GMPHD import clutter_intensity_function
 from util_files.object_parameters import YCB_OBJECT_COUNT
 
 
-def NOV_GMPHD_model(self):
+def NOV_GMPHD_model():
     model = {}
 
     # Sampling time, time step duration

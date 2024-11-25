@@ -46,13 +46,13 @@ def detect_objects(rgbImage, single_view, model):
             height = height.item()
             bounded_boxes.append([x_center, y_center, width, height])
 
-            logging.info(
-                "A %s detected at location (%s, %s) on step %d",
-                model.names[int(class_idx)],
-                x_center,
-                y_center,
-                single_view[STEP_KEY],
-            )
+            # logging.info(
+            #     "A %s detected at location (%s, %s) on step %d",
+            #     model.names[int(class_idx)],
+            #     x_center,
+            #     y_center,
+            #     single_view[STEP_KEY],
+            # )
 
             draw = ImageDraw.Draw(view_image)
             draw.ellipse(

@@ -1,15 +1,17 @@
 import numpy as np
-from filters.GMPHD.GMPHD import clutter_intensity_function
+from filters.GMPHD.GMPHD import GaussianMixture, clutter_intensity_function
 from util_files.object_parameters import YCB_OBJECT_COUNT
 
 
-def GMPHD_model(self):
+def GMPHD_model():
     model = {}
 
     # Sampling time, time step duration
     T_s = 1.0
     model["T_s"] = T_s
     model["nObj"] = YCB_OBJECT_COUNT
+
+    model["p_s"] = 0.95
 
     # Surveillance region
     x_min = -4
@@ -18,10 +20,11 @@ def GMPHD_model(self):
     y_max = 3
     model["surveillance_region"] = np.array([[x_min, x_max], [y_min, y_max]])
 
+    F = np.eye(3)
+    model["F"] = F
+
     # Transition matrix
     I_3 = np.eye(3)
-
-    model["p_s"] = 1.0
 
     # Process noise covariance matrix
     Q = (T_s**2) * I_3
@@ -36,7 +39,8 @@ def GMPHD_model(self):
 
     # MEASUREMENT MODEL
     # Probability of detection
-    model["p_d"] = 0.4
+    model["p_d"] = 0.36
+    model["alpha"] = 0.85
 
     # Measurement matrix z = Hx + v = N(z; Hx, R)
     model["H"] = I_3  # Since we are now measuring (x, y, z)
@@ -51,9 +55,10 @@ def GMPHD_model(self):
         z, model["lc"], model["surveillance_region"]
     )
 
+    model["A"] = 0.11
     # Pruning and merging parameters
-    model["T"] = 0.2
-    model["U"] = 0.09
+    model["T"] = 0.15
+    model["U"] = 0.07
     model["Jmax"] = 60
 
     return model

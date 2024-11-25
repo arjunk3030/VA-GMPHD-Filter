@@ -1,4 +1,5 @@
 import logging
+from pprint import pformat
 import random
 from util_files.config_params import (
     CAMERA_HEIGHT,
@@ -16,6 +17,7 @@ from util_files.keys import (
 )
 from util_files.object_parameters import (
     CAMERA_NAME,
+    ENV_PATH,
     OBJECT_SETS,
     TABLE_LOCATIONS,
     THRESHOLD,
@@ -146,20 +148,18 @@ def processView(
             )
 
             observed_cls.append(object[4])
-            observed_means.append(
-                np.array(
-                    [
-                        world_coordinates[0],
-                        world_coordinates[1],
-                        PointEstimation.calculateAngle(
-                            rotation,
-                            single_view[CAMERA_MATRIX_KEY][ROTATION_KEY],
-                        ),
-                    ]
-                )
+            angle = PointEstimation.calculateAngle(
+                rotation,
+                single_view[CAMERA_MATRIX_KEY][ROTATION_KEY],
             )
+            observed_means.append(
+                np.array([world_coordinates[0], world_coordinates[1], angle])
+            )
+
             if DEBUG_MODE:
-                logger.info(world_coordinates)
+                logger.info(
+                    f"A {object[4]} detected at location ({world_coordinates[0]}, {world_coordinates[1]}) rotated by {angle} degrees"
+                )
                 # createGeom(
                 #     scn,
                 #     world_coordinates,
@@ -172,11 +172,6 @@ def processView(
         return observed_means, observed_cls, distance
 
     return through6dPose(singleView, model)
-
-    # createGeom(
-    #     [0, 2, 0.3],
-    #     [random.random(), random.random(), random.random(), 1],
-    # )
 
 
 def turn_to_angle(target_angle_degrees, data):
@@ -216,6 +211,8 @@ def next_viewpoint(
     viewpoint_number: int,
     objectDetectionModel,
 ):
+    print(f"\nBeginning viewpoint number: {viewpoint_number}")
+    print("-----------------------------------------------------")
     if viewpoint_number >= len(TRAJECTORY_PATH):
         logging.error("Cannot step: completed all steps")
         return []
@@ -354,7 +351,7 @@ if __name__ == "__main__":
 
     global model, data, r, dr, scn
 
-    model = mujoco.MjModel.from_xml_path("environment_assets/EXP2_scene.xml", dict())
+    model = mujoco.MjModel.from_xml_path(ENV_PATH, dict())
     data = mujoco.MjData(model)
 
     dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)

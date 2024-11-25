@@ -57,7 +57,13 @@ def clutter_intensity_function(z: np.ndarray, lc: int, surveillance_region: np.n
 
 
 class GaussianMixture:
-    def __init__(self, w: List[np.float64], m: List[np.ndarray], P: List[np.ndarray]):
+    def __init__(
+        self,
+        w: List[np.float64],
+        m: List[np.ndarray],
+        P: List[np.ndarray],
+        cls: List[np.ndarray],
+    ):
         """
         The Gaussian mixture class
 
@@ -74,6 +80,7 @@ class GaussianMixture:
         self.P = P
         self.detP = None
         self.invP = None
+        self.cls = cls
 
     def set_covariance_determinant_and_inverse_list(
         self, detP: List[np.float64], invP: List[np.ndarray]
@@ -144,7 +151,7 @@ class GaussianMixture:
             m.append(m1.copy())
         for P1 in self.P:
             P.append(P1.copy())
-        return GaussianMixture(w, m, P)
+        return GaussianMixture(w, m, P, [])
 
 
 def get_matrices_inverses(P_list: List[np.ndarray]) -> List[np.ndarray]:
@@ -179,7 +186,7 @@ def thinning_and_displacement(v: GaussianMixture, p, F: np.ndarray, Q: np.ndarra
         m.append(F @ mean)
     for cov_matrix in v.P:
         P.append(Q + F @ cov_matrix @ F.T)
-    return GaussianMixture(w, m, P)
+    return GaussianMixture(w, m, P, [])
 
 
 class GMPHD:
@@ -224,16 +231,18 @@ class GMPHD:
         self.p_s = model["p_s"]
         self.F = model["F"]
         self.Q = model["Q"]
-        self.w_spawn = model["w_spawn"]
-        self.F_spawn = model["F_spawn"]
-        self.d_spawn = model["d_spawn"]
-        self.Q_spawn = model["Q_spawn"]
-        self.birth_GM = model["birth_GM"]
+        # self.w_spawn = model["w_spawn"]
+        # self.F_spawn = model["F_spawn"]
+        # self.d_spawn = model["d_spawn"]
+        # self.Q_spawn = model["Q_spawn"]
+        self.birth_w = model["birth_w"]
+        self.birth_P = model["birth_P"]
         self.p_d = model["p_d"]
         self.H = model["H"]
         self.R = model["R"]
         self.clutter_density_func = model["clutt_int_fun"]
         self.T = model["T"]
+        self.A = model["A"]
         self.U = model["U"]
         self.Jmax = model["Jmax"]
 
@@ -249,7 +258,7 @@ class GMPHD:
                 w.append(w_v * w_spawn)
                 m.append(self.F_spawn[j] @ v.m[i] + self.d_spawn[j])
                 P.append(self.Q_spawn[j] + self.F_spawn[j] @ v.P[i] @ self.F_spawn[j].T)
-        return GaussianMixture(w, m, P)
+        return GaussianMixture(w, m, P, [])
 
     def prediction(self, v: GaussianMixture) -> GaussianMixture:
         """
@@ -258,16 +267,17 @@ class GMPHD:
         - v: Gaussian mixture of the previous step
         """
         # v_pred = v_s + v_spawn +  v_new_born
-        birth_copy = self.birth_GM.copy()
+        # birth_copy = self.birth_GM.copy()
         # targets that survived v_s:
         v_s = thinning_and_displacement(v, self.p_s, self.F, self.Q)
         # spawning targets
-        v_spawn = self.spawn_mixture(v)
+        # v_spawn = self.spawn_mixture(v)
         # final phd of prediction
         return GaussianMixture(
-            v_s.w + v_spawn.w + birth_copy.w,
-            v_s.m + v_spawn.m + birth_copy.m,
-            v_s.P + v_spawn.P + birth_copy.P,
+            v_s.w,
+            v_s.m,
+            v_s.P,
+            [],
         )
 
     def correction(
@@ -299,11 +309,18 @@ class GMPHD:
         for z in Z:
             values = v_residual.mixture_component_values_list(z)
             normalization_factor = np.sum(values) + self.clutter_density_func(z)
+            m_weight = 0
             for i in range(len(v_residual.w)):
+                if values[i] > m_weight:
+                    m_weight = values[i]
                 w.append(values[i] / normalization_factor)
                 m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
                 P.append(P_kk[i].copy())
-        return GaussianMixture(w, m, P)
+            if m_weight < self.A:
+                w.append(self.birth_w)
+                m.append(z)
+                P.append(self.birth_P)
+        return GaussianMixture(w, m, P, [])
 
     def pruning(self, v: GaussianMixture) -> GaussianMixture:
         """
@@ -313,7 +330,7 @@ class GMPHD:
         w = [v.w[i] for i in I]
         m = [v.m[i] for i in I]
         P = [v.P[i] for i in I]
-        v = GaussianMixture(w, m, P)
+        v = GaussianMixture(w, m, P, [])
         I = (np.array(v.w) > self.T).nonzero()[0].tolist()
         invP = get_matrices_inverses(v.P)
         vw = np.array(v.w)
@@ -328,9 +345,6 @@ class GMPHD:
                     j = i
             L = []
             for i in I:
-                print(
-                    f"(vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) is {(vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])}"
-                )
                 if (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j]) <= self.U:
                     L.append(i)
             w_new = np.sum(vw[L])
@@ -350,31 +364,14 @@ class GMPHD:
             m = [m[i] for i in L]
             P = [P[i] for i in L]
 
-        return GaussianMixture(w, m, P)
+        return GaussianMixture(w, m, P, [])
 
     def state_estimation(self, v: GaussianMixture) -> List[np.ndarray]:
         X = []
+        Xc = []
         for i in range(len(v.w)):
             if v.w[i] >= 0.5:
-                # for j in range(int(np.round(v.w[i]))):
-                X.append(v.m[i])
-        return X
-
-    def filter_data(self, Z: List[List[np.ndarray]]) -> List[List[np.ndarray]]:
-        """
-        Given the list of collections of measurements for each time step, perform filtering and return the
-        estimated sets of tracks for each step.
-
-        :param Z: list of observations(measurements) for each time step
-        :return X:
-        list of estimated track sets for each time step
-        """
-        X = []
-        v = GaussianMixture([], [], [])
-        for z in Z:
-            v = self.prediction(v)
-            v = self.correction(v, z)
-            v = self.pruning(v)
-            x = self.state_estimation(v)
-            X.append(x)
-        return X
+                for j in range(int(np.round(v.w[i]))):
+                    X.append(v.m[i])
+                    Xc.append(0)
+        return X, Xc

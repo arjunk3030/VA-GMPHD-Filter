@@ -35,7 +35,7 @@ def VA_GMPHD_model():
     # MEASUREMENT MODEL
     # Probability of detection
     model["specs"] = [1, 0.4, 0.6, 0.2]  # 0.5
-    model["alpha"] = 0.875
+    model["alpha"] = 0.9
 
     # Measurement matrix z = Hx + v = N(z; Hx, R)
     model["H"] = I_3  # Since we are now measuring (x, y, z)

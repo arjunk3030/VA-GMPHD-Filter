@@ -79,7 +79,6 @@ def calculateAngle(q, rotation):
     q = [q[0], q[1], q[2], q[3]]
     new_rot = np.dot(rotation, quaternion_to_rotation_matrix(q))
     last_rotation = rotation_matrix_to_z_rotation((new_rot))
-    logger.info(f"Rotation on the z axis is: f{last_rotation}")
     return last_rotation
 
 

@@ -163,9 +163,9 @@ def calculate_all_p_v(
     occluded_depth_img[occluded_depth_img >= THRESHOLD] = 0
     mujoco.mj_step(model, data)
 
-    r = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
-    r.update_scene(data, CAMERA_NAME)
-    Image.fromarray(r.render()).show()
+    # r = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
+    # r.update_scene(data, CAMERA_NAME)
+    # Image.fromarray(r.render()).show()
 
     visibilities = []
     for visible_points in visible_points_list:

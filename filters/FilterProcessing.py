@@ -1,5 +1,9 @@
+from collections import defaultdict
+from itertools import cycle
 import matplotlib.pyplot as plt
 import time
+import logging
+import numpy as np
 from util_files.config_params import CURRENT_FILTER
 from testing.ExperimentalResults import ObjectEvaluator
 from PIL import Image
@@ -9,8 +13,6 @@ from filters.GMPHD.GMPHD import GMPHD, GaussianMixture
 from filters.GMPHD.GMPHD_params import GMPHD_model
 from filters.NOV_GMPHD.NOV_GMPHD import NOV_GMPHD, NOV_GaussianMixture
 from filters.NOV_GMPHD.NOV_GMPHD_params import NOV_GMPHD_model
-from filters.SGMPHD.SGMPHD import SGMPHD, SGMPHD_GaussianMixture
-from filters.SGMPHD.SGMPHD_params import SGMPHD_model
 from filters.VA_GMPHD.VA_GMPHD import VA_GMPHD, VA_GaussianMixture
 from filters.VA_GMPHD.VA_GMPHD_params import VA_GMPHD_model
 
@@ -30,15 +32,13 @@ class FilterProcessing:
             self.model = NOV_GMPHD_model()
             self.gmphd = NOV_GMPHD(self.model)
             self.gaussian_mixture = NOV_GaussianMixture([], [], [], [])
-        elif CURRENT_FILTER == "SGMPHD":
-            self.model = SGMPHD_model()
-            self.gmphd = SGMPHD(self.model)
-            self.gaussian_mixture = SGMPHD_GaussianMixture([], [], [], [])
         elif CURRENT_FILTER == "GMPHD":
             self.model = GMPHD_model()
-            self.gmphd = GMPHD_model(self.model)
+            self.gmphd = GMPHD(self.model)
             self.gaussian_mixture = GaussianMixture([], [], [], [])
 
+        logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
+        logging.getLogger("pil").setLevel(logging.ERROR)
         self.all_measurements = []
 
     def run_filter(self, scene_pos, scene_ctrl, observed_means, observed_cls, distance):
@@ -47,7 +47,7 @@ class FilterProcessing:
 
         v = self.gmphd.prediction(self.gaussian_mixture)
         p_v = [0] * len(v.w)
-        if len(v.m) > 0:
+        if len(v.m) > 0 and CURRENT_FILTER != "GMPHD":
             p_v = calculate_visibility.calculate_all_p_v(
                 self.object_set,
                 scene_pos,
@@ -73,7 +73,7 @@ class FilterProcessing:
             self.estimated_mean.append(list(sorted_mean))
             self.estimated_cls.append(list(sorted_cls))
 
-        logger.info(f"{self.object_set}: {combined}")
+            logger.info(f"{self.object_set}: {combined}")
         logger.info("Filtration time: " + str(time.time() - a) + " sec")
 
     def extract_axis_for_plot(self, X_collection, delta):
@@ -96,7 +96,7 @@ class FilterProcessing:
         y = []
         rot = []
         time = []
-        for step in total_time:
+        for step in np.unique(np.array(total_time)):
             for X in X_collection:
                 x.append(X[0])
                 y.append(X[1])
@@ -121,7 +121,7 @@ class FilterProcessing:
         plt.legend()
         plt.grid(True)
 
-        plt.savefig("cardinality_plot.png")
+        plt.savefig("testing/graphs/cardinality_plot.png")
         plt.close()
 
     def plot_3d(self, meas_time, meas_x, meas_y, estim_time, estim_x, estim_y):
@@ -134,29 +134,86 @@ class FilterProcessing:
         )
 
         ax.set_xlabel("Time (sec)")
-        ax.set_ylabel("X")
-        ax.set_zlabel("Y")
+        ax.set_ylabel("X (m)")
+        ax.set_zlabel("Y (m)")
         ax.set_title("3D Visualization of Object Tracking")
         ax.legend()
 
-        plt.savefig("3d_plot.png")
+        plt.savefig("testing/graphs/3d_plot.png")
         plt.close()
 
+    def assign_colors_to_objects(self, num_objects):
+        color_cycle = cycle(plt.cm.tab20(np.linspace(0, 1, 20)))
+        return [next(color_cycle) for _ in range(num_objects)]
+
     def plot_2d(
-        self, meas_time, meas_values, estim_time, estim_values, axis_label, title
+        self,
+        meas_time,
+        meas_values,
+        estim_time,
+        estim_values,
+        axis_label,
+        title,
+        file_name,
     ):
         plt.figure(figsize=(10, 6))
+
+        # Determine the number of unique objects (assumed to be equal to the length of meas_values)
+        times = np.unique(meas_time)
+
+        # Assign unique colors to each object
+        object_colors = self.assign_colors_to_objects(meas_time.count(meas_time[0]))
+
+        # Add jitter to ground truth to show overlapping points
+        jitter_amount = 0.009
+        jittered_meas_values = [
+            val + np.random.uniform(-jitter_amount, jitter_amount)
+            for val in meas_values
+        ]
+
+        # Plot ground truth with different colors for each object
+        previousTime = -1
+        colorNumber = 0
+        for idx, (time1, value) in enumerate(zip(meas_time, jittered_meas_values)):
+            if time1 != previousTime:
+                colorNumber = 0
+                previousTime = time1
+            plt.scatter(
+                time1,
+                value,
+                c=[object_colors[colorNumber]],
+                marker="x",
+                s=85,  # Larger size for clarity
+                label=None if idx > 0 else "Ground truth",  # Only label the first point
+            )
+            colorNumber += 1
+
+        # Add jitter to estimated values as well
+        jittered_estim_values = [
+            val + np.random.uniform(-jitter_amount, jitter_amount)
+            for val in estim_values
+        ]
+
+        # Plot estimated values (smaller gray circles)
         plt.scatter(
-            meas_time, meas_values, c="blue", label="Ground truth", marker="x", s=15
+            estim_time,
+            jittered_estim_values,
+            c="gray",
+            alpha=0.6,
+            s=50,  # Smaller size for estimated points
+            label="Filtered results",
         )
-        plt.scatter(estim_time, estim_values, c="green", label="Filter estimate", s=20)
+        # Set axis labels, title, and legend
         plt.xlabel("Time (sec)")
         plt.ylabel(axis_label)
         plt.title(title)
         plt.legend()
+
+        # Add grid for better readability
         plt.grid(True)
 
-        plt.savefig(f"testing/graphs/{axis_label.lower()}_plot.png")
+        # Save the figure as a PNG file
+        plt.savefig(f"testing/graphs/{file_name}.png")
         plt.close()
 
     def plot_misclassification_rate(self, misclassification_rates, total_time, T_s):
@@ -170,7 +227,7 @@ class FilterProcessing:
         plt.title("Misclassification Rate Over Time")
         plt.legend()
         plt.grid(True)
-        plt.savefig("misclassification_rate.png")
+        plt.savefig("testing/graphs/misclassification_rate.png")
         plt.close()
 
     def outputFilter(self):
@@ -187,7 +244,7 @@ class FilterProcessing:
 
         # Cardinality plot
         estimated_counts = [len(X) for X in self.estimated_mean]
-        actual_count = 9  # Placeholder value, replace with actual count
+        actual_count = len(self.ground_truth_objs)
         total_time = len(self.estimated_mean)
         self.plot_cardinality(
             estimated_counts, actual_count, total_time, self.model["T_s"]
@@ -207,16 +264,18 @@ class FilterProcessing:
             ground_truth_x,
             estim_time,
             estim_x,
-            "X",
+            "X (m)",
             "Time vs X coordinate",
+            "x_plot",
         )
         self.plot_2d(
             ground_truth_time,
             ground_truth_y,
             estim_time,
             estim_y,
-            "Y",
+            "Y (m)",
             "Time vs Y coordinate",
+            "y_plot",
         )
 
         self.plot_2d(
@@ -224,8 +283,9 @@ class FilterProcessing:
             ground_truth_rot,
             estim_time,
             estim_rotation,
-            "Rotation",
+            "Rotation (°)",
             "Time vs Rotation",
+            "rotation_plot",
         )
 
         # Evaluate classification accuracy and store misclassification rate
@@ -249,23 +309,23 @@ class FilterProcessing:
         )
 
         # Display plots (optional)
-        Image.open("cardinality_plot.png").show()
-        Image.open("3d_plot.png").show()
-        Image.open("x_plot.png").show()
-        Image.open("y_plot.png").show()
-        Image.open("rotation_plot.png").show()
-        Image.open("misclassification_rate.png").show()
+        Image.open("testing/graphs/cardinality_plot.png").show()
+        Image.open("testing/graphs/3d_plot.png").show()
+        Image.open("testing/graphs/x_plot.png").show()
+        Image.open("testing/graphs/y_plot.png").show()
+        Image.open("testing/graphs/rotation_plot.png").show()
+        Image.open("testing/graphs/misclassification_rate.png").show()
 
         return self.estimated_mean[-1], self.estimated_cls[-1]
 
     def evaluate(self):
         plt.rcParams["font.size"] = 12
-        logger.info(f"\nINFORMATION FOR filter {self.object_set}:")
-        logger.info("----------------------------------")
+        logger.info(f"\nEVALUATION for {self.object_set}:")
+        logger.info("---------------------------------------")
         if len(self.estimated_mean) == 0:
-            logger.info("no estimated states")
+            logger.info("No estimated states")
             return
-
+        print(f"Here are the predicted object locations: {self.estimated_mean[-1]}\n")
         evaluator = ObjectEvaluator(
             self.estimated_mean[-1],
             self.estimated_cls[-1],
@@ -275,7 +335,7 @@ class FilterProcessing:
 
         filtered_count, ground_truth_count = evaluator.compare_object_count()
         logger.info(
-            f"Filtered count: {filtered_count}, Ground truth count: {ground_truth_count}"
+            f"Filtered count is {filtered_count} and the ground truth count is {ground_truth_count}"
         )
 
         # Classification accuracy
@@ -283,12 +343,12 @@ class FilterProcessing:
         classification_accuracy = (
             correct_classifications / total_matched if total_matched else 0
         )
-        logger.info(f"Classification Accuracy: {classification_accuracy * 100:.2f}%")
+        logger.info(f"Misclassification rate: {(1-classification_accuracy) * 100:.2f}%")
 
         # Distance error
         avg_dist_error = evaluator.calc_distance_error()
-        logger.info(f"Average Distance Error: {avg_dist_error:.2f}")
+        logger.info(f"Average x and y pose error: {avg_dist_error:.2f}")
 
         # Pose error
         avg_pose_error = evaluator.calc_pose_error()
-        logger.info(f"Average Pose Error: {avg_pose_error:.2f}\n")
+        logger.info(f"Average rotational pose error: {avg_pose_error:.2f}\n")

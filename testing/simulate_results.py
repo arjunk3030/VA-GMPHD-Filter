@@ -69,15 +69,13 @@ def stateUpdates(model, data, object_set):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     list2 = [
-        (1, [-0.01635, 0.01065, 175.71]),
-        (1, [-0.024383, -0.14263, 131.2]),
-        (3, [0.18979, -0.090204, 101.93]),
-        (3, [0.10767, -0.070269, 115.34]),
-        (4, [0.097758, 0.031701, 163.03]),
-        (4, [0.16909, -0.18323, 163.54]),
-        (4, [0.084564, -0.19672, 155.66]),
-        (12, [0.27511, 0.025882, 132.16]),
-        (12, [0.31723, -0.17511, 137.73]),
+        (2, [0.43704, 1.2792, 179.96]),
+        (2, [0.4719, 1.4902, 113.8]),
+        (3, [0.35267, 1.283, 152.27]),
+        (9, [0.6863, 1.2844, 111.23]),
+        (10, [0.60519, 1.4904, -6.5589]),
+        (13, [0.52715, 1.2782, 153.5]),
+        (20, [0.35734, 1.4, 148.58]),
     ]
 
     # list3 = [
@@ -95,10 +93,10 @@ if __name__ == "__main__":
     #     object_body.pos = [0, 0, FLOOR_HEIGHT]
     #     g = object_body.add_geom()
     #     set_values(g, result[1], result[0])
-    for result in list2:
-        object_body.pos = [0, 0, FLOOR_HEIGHT]
-        g = object_body.add_geom()
-        set_values(g, result[1], result[0])
+    # for result in list2:
+    #     object_body.pos = [0, 0, FLOOR_HEIGHT]
+    #     g = object_body.add_geom()
+    #     set_values(g, result[1], result[0])
     # for result in list3:
     #     object_body.pos = [0, 0, FLOOR_HEIGHT]
     #     g = object_body.add_geom()
@@ -123,11 +121,17 @@ if __name__ == "__main__":
 
     with mujoco.viewer.launch_passive(model, data) as viewer:
         viewer.cam.lookat[:] = [0.0, 0.0, 0.0]  # Point of interest (x, y, z)
-        viewer.cam.azimuth = -14.808629587156048  # Horizontal angle (degrees)
-        viewer.cam.elevation = -39.8995126146786  # Vertical angle (degrees)
-        viewer.cam.distance = 2.864629740942742  # Distance from the point of interest
-        for object_name, object_set in OBJECT_SETS.items():
-            stateUpdates(model, data, object_set)
+        viewer.cam.azimuth = 127.66019208715579  # Horizontal angle (degrees)
+        viewer.cam.elevation = -67.63532110091747  # Vertical angle (degrees)
+        viewer.cam.distance = 3.169448814604967  # Distance from the point of interest
+
+        # viewer.cam.lookat[:] = [0.0, 0.0, 0.0]  # Point of interest (x, y, z)
+        # viewer.cam.azimuth = -14.808629587156048  # Horizontal angle (degrees)
+        # viewer.cam.elevation = -39.8995126146786  # Vertical angle (degrees)
+        # viewer.cam.distance = 2.864629740942742  # Distance from the point of interest
+
+        # for object_name, object_set in OBJECT_SETS.items():
+        #     stateUpdates(model, data, object_set)
 
         scene_option = mujoco.MjvOption()
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM
