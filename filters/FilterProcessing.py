@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import time
 import logging
 import numpy as np
+import torch
 from util_files.config_params import CURRENT_FILTER
 from testing.ExperimentalResults import ObjectEvaluator
 from PIL import Image
@@ -23,19 +24,24 @@ class FilterProcessing:
         self.ground_truth_types = ground_truth_types
         self.object_set = object_set
         self.estimated_mean = []
-        self.estimated_cls = []
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if CURRENT_FILTER == "VA_GMPHD":
             self.model = VA_GMPHD_model()
             self.gmphd = VA_GMPHD(self.model)
-            self.gaussian_mixture = VA_GaussianMixture([], [], [], [])
-        elif CURRENT_FILTER == "NOV_GMPHD":
-            self.model = NOV_GMPHD_model()
-            self.gmphd = NOV_GMPHD(self.model)
-            self.gaussian_mixture = NOV_GaussianMixture([], [], [], [])
-        elif CURRENT_FILTER == "GMPHD":
-            self.model = GMPHD_model()
-            self.gmphd = GMPHD(self.model)
-            self.gaussian_mixture = GaussianMixture([], [], [], [])
+            self.gaussian_mixture = VA_GaussianMixture(
+                w=torch.tensor([], device=device),
+                m=torch.tensor([], device=device).reshape(0, 3), 
+                P=torch.tensor([], device=device).reshape(0, 3, 3),
+                cls=torch.tensor([], device=device).reshape(0, self.gmphd.nObj)
+            )
+        # elif CURRENT_FILTER == "NOV_GMPHD":
+        #     self.model = NOV_GMPHD_model()
+        #     self.gmphd = NOV_GMPHD(self.model)
+        #     self.gaussian_mixture = NOV_GaussianMixture([], [], [], [])
+        # elif CURRENT_FILTER == "GMPHD":
+        #     self.model = GMPHD_model()
+        #     self.gmphd = GMPHD(self.model)
+        #     self.gaussian_mixture = GaussianMixture([], [], [], [])
 
         logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
         logging.getLogger("pil").setLevel(logging.ERROR)
@@ -45,10 +51,13 @@ class FilterProcessing:
         self.all_measurements.append(observed_means)
         a = time.time()
 
-        v = self.gmphd.prediction(self.gaussian_mixture)
-        p_v = [0] * len(v.w)
+        v = self.gmphd.prediction(self.gaussian_mixture)        
+        
+        p_v = torch.ones(len(v.w), device=self.gaussian_mixture.w.device)
+        
+        
         if len(v.m) > 0 and CURRENT_FILTER != "GMPHD":
-            p_v = calculate_visibility.calculate_all_p_v(
+            p_v_raw = calculate_visibility.calculate_all_p_v(
                 self.object_set,
                 scene_pos,
                 scene_ctrl,
@@ -56,8 +65,11 @@ class FilterProcessing:
                 v.cls,
                 self.estimated_mean[-1],
             )
+            p_v = torch.as_tensor(p_v_raw, dtype=torch.float32, device=self.gaussian_mixture.w.device)
+            
         v = self.gmphd.correction(v, p_v, observed_means, observed_cls, distance)
         self.gaussian_mixture = self.gmphd.pruning(v)
+        
         estimated_mean, estimated_cls = self.gmphd.state_estimation(
             self.gaussian_mixture
         )

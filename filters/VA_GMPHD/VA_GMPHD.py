@@ -1,9 +1,10 @@
 import numpy as np
 import numpy.linalg as lin
 from typing import List, Dict, Any
+import torch
 
 
-def multivariate_gaussian(x: np.ndarray, m: np.ndarray, P: np.ndarray) -> float:
+def multivariate_gaussian(x: torch.Tensor, m: torch.Tensor, P: torch.Tensor) -> torch.Tensor:
     """
     Multivatiate Gaussian Distribution
 
@@ -12,14 +13,13 @@ def multivariate_gaussian(x: np.ndarray, m: np.ndarray, P: np.ndarray) -> float:
     :param P: Covariance matrix
     :return: probability density function at x
     """
-    first_part = 1 / (((2 * np.pi) ** (x.size / 2.0)) * (lin.det(P) ** 0.5))
-    second_part = -0.5 * (x - m) @ lin.inv(P) @ (x - m)
-    return first_part * np.exp(second_part)
-
+    detP = torch.linalg.det(P)
+    invP = torch.linalg.inv(P)
+    return multivariate_gaussian_predefined_det_and_inv(x, m, detP, invP)
 
 def multivariate_gaussian_predefined_det_and_inv(
-    x: np.ndarray, m: np.ndarray, detP: np.float64, invP: np.ndarray
-) -> float:
+    x: torch.Tensor, m: torch.Tensor, detP: torch.Tensor, invP: torch.Tensor
+) -> torch.Tensor:
     """
     Multivariate Gaussian Distribution with provided determinant and inverse of the Gaussian mixture.
     Useful in case when we already have precalculted determinant and inverse of the covariance matrix.
@@ -29,12 +29,13 @@ def multivariate_gaussian_predefined_det_and_inv(
     :param invP: inverse of the covariance matrix
     :return: probability density function at x
     """
-    first_part = 1 / (((2 * np.pi) ** (x.size / 2.0)) * (detP**0.5))
-    second_part = -0.5 * (x - m) @ invP @ (x - m)
-    return first_part * np.exp(second_part)
+    dim = x.shape[0]
+    first_part = 1 / (torch.pow(2 * torch.pi, dim / 2.0) * torch.sqrt(detP))
+    diff = x - m
+    second_part = -0.5 * diff @ invP @ diff
+    return first_part * torch.exp(second_part)
 
-
-def clutter_intensity_function(z: np.ndarray, lc: int, surveillance_region: np.ndarray):
+def clutter_intensity_function(z: torch.Tensor, lc: float, surveillance_region: torch.Tensor):
     """
     Clutter intensity function, with the uniform distribution through the surveillance region, pg. 8
     in "Bayesian Multiple Target Filtering Using Random Finite Sets" by Vo, Vo, Clark.
@@ -47,22 +48,19 @@ def clutter_intensity_function(z: np.ndarray, lc: int, surveillance_region: np.n
         surveillance_region[0][0] <= z[0] <= surveillance_region[0][1]
         and surveillance_region[1][0] <= z[1] <= surveillance_region[1][1]
     ):
-        # example in two dimensions: lc/((xmax - xmin)*(ymax-ymin))
-        return lc / (
-            (surveillance_region[0][1] - surveillance_region[0][0])
-            * (surveillance_region[1][1] - surveillance_region[1][0])
-        )
+        area = (surveillance_region[0][1] - surveillance_region[0][0]) * \
+               (surveillance_region[1][1] - surveillance_region[1][0])
+        return torch.tensor(lc / area, device=z.device)
     else:
-        return 0.0
-
+        return torch.tensor(1e-10, device=z.device)
 
 class VA_GaussianMixture:
     def __init__(
         self,
-        w: List[np.float64],
-        m: List[np.ndarray],
-        P: List[np.ndarray],
-        cls: List[np.ndarray],
+       w: torch.Tensor,
+        m: torch.Tensor,
+        P: torch.Tensor,
+        cls: torch.Tensor,
     ):
         """
         The Gaussian mixture class
@@ -83,7 +81,7 @@ class VA_GaussianMixture:
         self.invP = None
 
     def set_covariance_determinant_and_inverse_list(
-        self, detP: List[np.float64], invP: List[np.ndarray]
+        self, detP: torch.Tensor, invP: torch.Tensor
     ):
         """
         For each Gaussian component, provide the determinant and the covariance inverse
@@ -93,11 +91,11 @@ class VA_GaussianMixture:
         self.detP = detP
         self.invP = invP
 
-    def mixture_value(self, x: np.ndarray):
+    def mixture_value(self, x: torch.Tensor):
         """
         Gaussian Mixture function for the given vector x
         """
-        sum = 0
+        sum = torch.tensor(0.0, device=x.device)
         if self.detP is None:
             for i in range(len(self.w)):
                 sum += self.w[i] * multivariate_gaussian(x, self.m[i], self.P[i])
@@ -108,7 +106,7 @@ class VA_GaussianMixture:
                 )
         return sum
 
-    def mixture_single_component_value(self, x: np.ndarray, i: int) -> float:
+    def mixture_single_component_value(self, x: torch.Tensor, i: int) -> torch.Tensor:
         """
         Single Gaussian Mixture component value for the given vector
         :param x: vector
@@ -122,28 +120,7 @@ class VA_GaussianMixture:
                 x, self.m[i], self.detP[i], self.invP[i]
             )
 
-    # def mixture_component_values_list(self, x: np.ndarray) -> List[float]:
-    #     """
-    #     Sometimes it is useful to have value of each component multiplied with its weight
-    #     :param x: vector
-    #     :return: List[np.float64]:
-    #     List of components values at x, multiplied with their weight.
-    #     """
-    #     val = []
-    #     if self.detP is None:
-    #         for i in range(len(self.w)):
-    #             val.append(self.w[i] * multivariate_gaussian(x, self.m[i], self.P[i]))
-    #     else:
-    #         for i in range(len(self.w)):
-    #             val.append(
-    #                 self.w[i]
-    #                 * multivariate_gaussian_predefined_det_and_inv(
-    #                     x, self.m[i], self.detP[i], self.invP[i]
-    #                 )
-    #             )
-    #     return val
-
-    def mixture_component_values_list(self, x: np.ndarray) -> List[float]:
+    def mixture_component_values_list(self, x: torch.Tensor) -> torch.Tensor:
         """
         Sometimes it is useful to have the value of each component multiplied with its weight
         :param x: vector
@@ -179,83 +156,37 @@ class VA_GaussianMixture:
                         x_2d, m_2d, self.detP[i], invP_2x2
                     )
                 )
-        return val
+        return torch.stack(val)
 
     def copy(self):
-        w = self.w.copy()
-        m = []
-        P = []
-        cls = self.cls.copy()
-        for m1 in self.m:
-            m.append(m1.copy())
-        for P1 in self.P:
-            P.append(P1.copy())
+        w = self.w.clone()
+        m = self.m.clone()
+        P = self.P.clone()
+        cls = self.cls.clone()
         return VA_GaussianMixture(w, m, P, cls)
 
 
-def get_matrices_inverses(P_list: List[np.ndarray]) -> List[np.ndarray]:
-    inverse_P_list = []
-    for P in P_list:
-        inverse_P_list.append(np.linalg.inv(P))
-    return inverse_P_list
+def get_matrices_inverses(P_tensor: torch.Tensor) -> torch.Tensor:
+    return torch.linalg.inv(P_tensor)
 
+def get_matrices_determinants(P_tensor: torch.Tensor) -> torch.Tensor:
+    return torch.linalg.det(P_tensor)
 
-def get_matrices_determinants(P_list: List[np.ndarray]) -> List[float]:
-    """
-    :param P_list: list of covariance matrices
-    :return:
-    """
-    detP = []
-    for P in P_list:
-        detP.append(lin.det(P))
-    return detP
-
-
-def thinning_and_displacement(v: VA_GaussianMixture, p, F: np.ndarray, Q: np.ndarray):
-    """
-    For the given Gaussian mixture v, perform thinning with probability P and displacement with N(x; F @ x_prev, Q)
-    See https://ieeexplore.ieee.org/document/7202905 for details
-    """
-    w = []
-    m = []
-    P = []
-    for weight in v.w:
-        w.append(weight * p)
-    for mean in v.m:
-        m.append(F @ mean)
-    for cov_matrix in v.P:
-        P.append(Q + F @ cov_matrix @ F.T)
+def thinning_and_displacement(v: VA_GaussianMixture, p: torch.Tensor, F: torch.Tensor, Q: torch.Tensor):
+    w = v.w * p
+    m = v.m @ F.T
+    P = F @ v.P @ F.T + Q
     return VA_GaussianMixture(w, m, P, v.cls)
 
-
-def just_displacement(v: VA_GaussianMixture, F: np.ndarray, Q: np.ndarray):
-    """
-    For the given Gaussian mixture v, perform thinning with probability P and displacement with N(x; F @ x_prev, Q)
-    See https://ieeexplore.ieee.org/document/7202905 for details
-    """
-    m = []
-    P = []
-    for mean in v.m:
-        m.append(F @ mean)
-    for cov_matrix in v.P:
-        P.append(Q + F @ cov_matrix @ F.T)
+def just_displacement(v: VA_GaussianMixture, F: torch.Tensor, Q: torch.Tensor):
+    m = v.m @ F.T
+    P = F @ v.P @ F.T + Q
     return VA_GaussianMixture(v.w, m, P, v.cls)
 
-
-def spread_convariance(v: VA_GaussianMixture, Q: np.ndarray):
-    w = []
-    m = []
-    P = []
-
-    for weight in v.w:
-        w.append(weight)
-
-    for mean in v.m:
-        m.append(mean)
-
-    for cov_matrix in v.P:
-        P.append(Q + cov_matrix)
-
+def spread_convariance(v: VA_GaussianMixture, Q: torch.Tensor):
+    w = v.w.clone()
+    m = v.m.clone()
+    P = v.P + Q
     return VA_GaussianMixture(w, m, P, v.cls)
 
 
@@ -312,34 +243,34 @@ class VA_GMPHD:
         self.alpha = model["alpha"]
         self.Jmax = model["Jmax"]
 
-    def cosine_similarity(self, xc, yc):
-        xc = np.array(xc)
-        yc = np.array(yc)
+    def cosine_similarity(self, xc: torch.Tensor, yc: torch.Tensor):
+        if yc.ndimension() == 1:
+            dot_product = torch.dot(xc, yc)
+            norm_x = torch.linalg.norm(xc)
+            norm_y = torch.linalg.norm(yc)
+        else:
+            dot_product = torch.mv(yc, xc)
+            norm_x = torch.linalg.norm(xc)
+            norm_y = torch.linalg.norm(yc, dim=1)
+            
+        similarity = dot_product / (norm_x * norm_y + 1e-8)
+        return torch.abs(similarity)
 
-        dot_product = np.dot(xc, yc)
-        magnitudex = np.linalg.norm(xc)
-        magnitudey = np.linalg.norm(yc)
-
-        similarity = dot_product / (magnitudex * magnitudey)
-
-        return np.abs(similarity)
-
-    def p_d_calc(self, distance: float, specs):
+    def p_d_calc(self, distance: torch.Tensor, specs: torch.Tensor):
         max_range, threshold, constant_p_d, min_p_d = specs
+        
         if distance <= threshold:
             return constant_p_d
-        elif threshold < distance <= max_range:
+        elif distance <= max_range:
             scale = (distance - threshold) / (max_range - threshold)
             return constant_p_d - scale * (constant_p_d - min_p_d)
         else:
             return min_p_d
 
-    def generate_smoothed_cls(self, cls):
-        total_count = sum(cls)
-        smoothed_cls = [
-            (count + self.alpha) / (total_count + self.alpha * len(cls))
-            for count in cls
-        ]
+    def generate_smoothed_cls(self, cls: torch.Tensor):
+        total_count = torch.sum(cls)
+        num_classes = cls.shape[0]
+        smoothed_cls = (cls + self.alpha) / (total_count + self.alpha * num_classes)
         return smoothed_cls
 
     def prediction(self, v: VA_GaussianMixture) -> VA_GaussianMixture:
@@ -354,7 +285,7 @@ class VA_GMPHD:
         return VA_GaussianMixture(v_s.w, v_s.m, v_s.P, v.cls)
 
     def correction(
-        self, v: VA_GaussianMixture, p_v, Z: List[np.ndarray], Zcls, distance
+        self, v: VA_GaussianMixture, p_v: torch.Tensor, Z: torch.Tensor, Zcls: torch.Tensor, distance: torch.Tensor
     ) -> VA_GaussianMixture:
         """
         Correction step of the GMPHD filter
@@ -363,154 +294,139 @@ class VA_GMPHD:
         - Z: Measurement set, containing set of observations
         """
         p_d = self.p_d_calc(distance, self.specs)
-        v_residual = VA_GaussianMixture([], [], [], v.cls)
-        for i, (w, m, P) in enumerate(zip(v.w, v.m, v.P)):
-            v_residual.w.append(p_v[i] * w * p_d)
-            v_residual.m.append(self.H @ m)
-            v_residual.P.append(self.R + self.H @ P @ self.H.T)
-
-        detP = get_matrices_determinants(v_residual.P)
-        invP = get_matrices_inverses(v_residual.P)
+        
+        # Residual calculations
+        res_w = p_v * v.w * p_d
+        res_m = v.m @ self.H.T
+        res_P = self.H @ v.P @ self.H.T + self.R
+        
+        v_residual = VA_GaussianMixture(res_w, res_m, res_P, v.cls)
+        detP = torch.linalg.det(v_residual.P)
+        invP = torch.linalg.inv(v_residual.P)
         v_residual.set_covariance_determinant_and_inverse_list(detP, invP)
 
-        K = []
-        P_kk = []
-        for i in range(len(v_residual.w)):
-            k = v.P[i] @ self.H.T @ invP[i]
-            K.append(k)
-            P_kk.append(v.P[i] - k @ self.H @ v.P[i])
+        K = v.P @ self.H.T @ invP
+        P_kk = v.P - K @ self.H @ v.P
 
-        v_copy = v.copy()
+        # Missed detections
+        w = [v.w * p_v * (1 - p_d), v.w * (1 - p_v)]
+        m = [v.m, v.m]
+        P = [v.P, v.P]
+        cls = [v.cls, v.cls]
 
-        w_visible = [
-            weight * probability * (1 - p_d)
-            for weight, probability in zip(v_copy.w, p_v)
-        ]
-        w_not_visible = [
-            weight * (1 - probability) for weight, probability in zip(v_copy.w, p_v)
-        ]
-        w = w_visible + w_not_visible
-        m = v_copy.m + v_copy.m
-        P = v_copy.P + v_copy.P
-        cls = v_copy.cls + v_copy.cls
-
-        for z, z_cls in zip(Z, Zcls):
+        for j in range(len(Z)):
+            z = Z[j]
             values = v_residual.mixture_component_values_list(z)
-            normalization_factor = np.sum(values) + self.clutter_density_func(z)
-            observation_cls = [0] * self.nObj
-            observation_cls[z_cls] += 1
-            observation_cls = self.generate_smoothed_cls(observation_cls)
-            m_weight = 0
-            for i in range(len(v_residual.w)):
-                if values[i] > m_weight:
-                    m_weight = values[i]
-                p_c = self.cosine_similarity(observation_cls, v_residual.cls[i])
-                w.append(p_c * values[i] / normalization_factor)
-                m.append(v.m[i] + K[i] @ (z - v_residual.m[i]))
-                P.append(P_kk[i].copy())
-                new_cls = [
-                    current + obs
-                    for current, obs in zip(v_residual.cls[i], observation_cls)
-                ]
-                total = sum(new_cls)
-                new_cls = [x / total for x in new_cls]
+            # Ensure clutter density function returns a torch tensor
+            clutter = clutter_intensity_function(z, self.lc, self.surveillance_region)
+            normalization_factor = torch.sum(values) + clutter
+            
+            obs_cls = torch.zeros(self.nObj, device=z.device)
+            obs_cls[Zcls[j]] = 1.0
+            obs_cls = self.generate_smoothed_cls(obs_cls)
+            
+            p_c = self.cosine_similarity(obs_cls, v_residual.cls) 
+            w.append(p_c * values / normalization_factor)
+            
+            innov = (z - res_m).unsqueeze(-1)
+            m.append(v.m + (K @ innov).squeeze(-1))
+            P.append(P_kk)
+            
+            new_cls_unnorm = v_residual.cls + obs_cls
+            cls.append(new_cls_unnorm / torch.sum(new_cls_unnorm, dim=1, keepdim=True))
 
-                cls.append(new_cls)
-            if m_weight < self.A:
-                w.append(self.birth_w)
-                m.append(z)
-                P.append(self.birth_P)
-                cls.append(observation_cls)
-        return VA_GaussianMixture(w, m, P, cls)
+            if torch.max(values) < self.A:
+                w.append(self.birth_w.unsqueeze(0))
+                m.append(z.unsqueeze(0))
+                P.append(self.birth_P.unsqueeze(0))
+                cls.append(obs_cls.unsqueeze(0))
 
+        return VA_GaussianMixture(torch.cat(w), torch.cat(m), torch.cat(P), torch.cat(cls))
     def pruning(self, v: VA_GaussianMixture) -> VA_GaussianMixture:
         """
         See https://ieeexplore.ieee.org/document/7202905 for details
         """
-        I = (np.array(v.w) > self.T).nonzero()[0]
-        w = [v.w[i] for i in I]
-        m = [v.m[i] for i in I]
-        P = [v.P[i] for i in I]
-        cls = [v.cls[i] for i in I]
-        v = VA_GaussianMixture(w, m, P, cls)
+        indices = (v.w > self.T).nonzero(as_tuple=True)[0]
+        vw = v.w[indices]
+        vm = v.m[indices]
+        vP = v.P[indices]
+        vcls = v.cls[indices]
+        
+        invP_2x2 = torch.linalg.inv(vP[:, :2, :2])
+        
+        w_final = []
+        m_final = []
+        P_final = []
+        cls_final = []
 
-        I = (np.array(v.w) > self.T).nonzero()[0].tolist()
-        invP = get_matrices_inverses(v.P)
-        vw = np.array(v.w)
-        vm = np.array(v.m)
-        vcls = np.array(v.cls)
-        w = []
-        m = []
-        P = []
-        cls = []
+        I = torch.arange(len(vw), device=vw.device).tolist()
 
         while len(I) > 0:
             j = I[0]
             for i in I:
                 if vw[i] > vw[j]:
                     j = i
+            
             L = []
-            # for i in I:
-            #     p_c = self.cosine_similarity(vcls[i], vcls[j])
-            #     x = (vm[i] - vm[j]) @ invP[i] @ (vm[i] - vm[j])
-            #     adjusted_x = x * 1 / p_c
-
-            #     # Apply the merging condition
-            #     if adjusted_x <= self.U:
-            #         L.append(i)
-
             for i in I:
                 p_c = self.cosine_similarity(vcls[i], vcls[j])
-
-                if (vm[i][:2] - vm[j][:2]) @ invP[i][:2, :2] @ (
-                    vm[i][:2] - vm[j][:2]
-                ) <= (self.U * p_c):
+                diff_2d = vm[i][:2] - vm[j][:2]
+                dist = diff_2d @ invP_2x2[i] @ diff_2d
+                
+                if dist <= (self.U * p_c):
                     L.append(i)
 
-                # if (vm[i][:3] - vm[j][:3]) @ invP[i][:3, :3] @ (
-                #     vm[i][:3] - vm[j][:3]
-                # ) <= (self.U * p_c):
-                #     L.append(i)
+            L_tensor = torch.tensor(L, device=vw.device)
+            w_L = vw[L_tensor]
+            m_L = vm[L_tensor]
+            P_L = vP[L_tensor]
+            cls_L = vcls[L_tensor]
 
-            w_new = np.sum(vw[L])
-            # m_new = np.sum((vw[L] * vm[L].T).T, axis=0) / w_new
-            m_first_two = np.sum((vw[L] * vm[L, :2].T).T, axis=0) / w_new
-            m_last = vm[L, 2].max()
-            m_new = np.concatenate([m_first_two, [m_last]])
+            w_new = torch.sum(w_L)
+            m_first_two = torch.sum((w_L.unsqueeze(1) * m_L[:, :2]), dim=0) / w_new
+            m_last = torch.max(m_L[:, 2], dim=0)[0].unsqueeze(0)
+            m_new = torch.cat([m_first_two, m_last])
 
-            P_new = np.zeros((m_new.shape[0], m_new.shape[0]))
-            cls_weighted_sum = np.zeros(len(vcls[L][0]))
-            for i in L:
-                cls_weighted_sum += vw[i] * np.array(vcls[i])
-            w_new = np.sum(vw[L])
-            cls_new = (cls_weighted_sum / w_new).tolist()
-            for i in L:
-                P_new += vw[i] * (v.P[i] + np.outer(m_new - vm[i], m_new - vm[i]))
+            diff_m = m_new - m_L
+            outer_p = torch.matmul(diff_m.unsqueeze(2), diff_m.unsqueeze(1))
+            P_new = torch.sum(w_L.unsqueeze(1).unsqueeze(2) * (P_L + outer_p), dim=0) / w_new
 
-            P_new /= w_new
-            w.append(w_new)
-            m.append(m_new)
-            P.append(P_new)
-            cls.append(cls_new)
+            cls_new = torch.sum(w_L.unsqueeze(1) * cls_L, dim=0) / w_new
+
+            w_final.append(w_new)
+            m_final.append(m_new)
+            P_final.append(P_new)
+            cls_final.append(cls_new)
+            
             I = [i for i in I if i not in L]
 
-        if len(w) > self.Jmax:
-            L = np.array(w).argsort()[-self.Jmax :]
-            w = [w[i] for i in L]
-            m = [m[i] for i in L]
-            P = [P[i] for i in L]
-            cls = [cls[i] for i in L]
+        w_out = torch.stack(w_final)
+        m_out = torch.stack(m_final)
+        P_out = torch.stack(P_final)
+        cls_out = torch.stack(cls_final)
 
-        return VA_GaussianMixture(w, m, P, cls)
+        if len(w_out) > self.Jmax:
+            _, top_indices = torch.topk(w_out, self.Jmax)
+            w_out = w_out[top_indices]
+            m_out = m_out[top_indices]
+            P_out = P_out[top_indices]
+            cls_out = cls_out[top_indices]
 
-    def state_estimation(self, v: VA_GaussianMixture) -> List[np.ndarray]:
+        return VA_GaussianMixture(w_out, m_out, P_out, cls_out)
+
+    def state_estimation(self, v: VA_GaussianMixture):
         X = []
         Xc = []
-        for i in range(len(v.w)):
-            if v.w[i] >= 0.5:
-                max_value = max(v.cls[i])
-                X.append(v.m[i])
-                Xc.append(
-                    v.cls[i].index(max_value),
-                )
+        
+        indices = (v.w >= 0.5).nonzero(as_tuple=True)[0]
+        
+        if indices.numel() > 0:
+            estimates_m = v.m[indices]
+            estimates_cls = v.cls[indices]
+            
+            for i in range(len(indices)):
+                X.append(estimates_m[i])
+                max_val, max_idx = torch.max(estimates_cls[i], dim=0)
+                Xc.append(max_idx.item())
+                
         return X, Xc
