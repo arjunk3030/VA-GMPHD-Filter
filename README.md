@@ -20,7 +20,7 @@ pip install -r requirements.txt
 To run a simulation, simply execute:
 
 ```
-mjpython main.py
+mjpython run_filter.py
 ```
 
 A live viewer will appear along with outputs to the console. All plots tracking the cardinality, positions (X, Y, Rotation), and misclassification rates over time will be saved as images.
