@@ -41,10 +41,10 @@ def camera_to_image(x, y, depth, K):
     return int(x_i), int(y_i)
 
 
-def camera_to_world(camera_matrix, point_camera):
+def camera_to_world(rotation, translation, point_camera):
     return (
-        np.dot(camera_matrix[ROTATION_KEY], point_camera)
-        + camera_matrix[TRANSLATION_KEY]
+        np.dot(rotation, point_camera)
+        + translation
     )
 
 
@@ -83,12 +83,9 @@ def calculateAngle(q, rotation):
 
 
 # Region growing
-def distance_3d(point1, point2, camera_matrix):
-    rotation_matrix = camera_matrix[ROTATION_KEY]
-    translation = camera_matrix[TRANSLATION_KEY]
-
-    point1_world = rotation_matrix @ point1 + translation
-    point2_world = rotation_matrix @ point2 + translation
+def distance_3d(point1, point2, rotation, translation):
+    point1_world = rotation @ point1 + translation
+    point2_world = rotation @ point2 + translation
 
     return np.linalg.norm(point1_world - point2_world)
 
@@ -103,17 +100,15 @@ def near_ground(z):
 
 
 def createChooseMask(
-    depth_image,
-    rgbImage,
-    camera_matrix,
     seed,
-    intrinsic,
+    view,
+    camera_intrinsic,
     tolerance_depth=0.01,
     tolerance_color=130,
 ):
-    rgb_image = np.array(rgbImage)
+    rgb_image = np.array(view.rgb)
 
-    height, width = depth_image.shape
+    height, width = view.depth.shape
     segmented = np.zeros((height, width), dtype=np.uint8)
     stack = [seed]
     segmented[seed[1], seed[0]] = 255
@@ -121,9 +116,9 @@ def createChooseMask(
     while stack:
         x, y = stack.pop()
         current_3d = image_to_camera_coordinates(
-            x, y, depth_image[round(y), round(x)], intrinsic
+            x, y, view.depth[round(y), round(x)], camera_intrinsic
         )
-        world_3d = camera_to_world(camera_matrix, current_3d)
+        world_3d = camera_to_world(view.rotation, view.translation, current_3d)
 
         # Skip points near the ground plane
         if near_ground(world_3d[2]):
@@ -135,9 +130,9 @@ def createChooseMask(
             nx, ny = x + dx, y + dy
             if 0 <= nx < width and 0 <= ny < height and segmented[ny, nx] == 0:
                 neighbor_3d = image_to_camera_coordinates(
-                    nx, ny, depth_image[round(ny), round(nx)], intrinsic
+                    nx, ny, view.depth[round(ny), round(nx)], camera_intrinsic
                 )
-                world_3d_neighbor = camera_to_world(camera_matrix, neighbor_3d)
+                world_3d_neighbor = camera_to_world(view.rotation, view.translation, neighbor_3d)
 
                 # Skip points near the ground plane
                 if near_ground(world_3d_neighbor[2]):
@@ -145,7 +140,7 @@ def createChooseMask(
 
                 neighbor_color = rgb_image[ny, nx]
 
-                depth_diff = distance_3d(current_3d, neighbor_3d, camera_matrix)
+                depth_diff = distance_3d(current_3d, neighbor_3d, view.rotation, view.translation)
                 color_diff = np.linalg.norm(
                     current_color.astype(float) - neighbor_color.astype(float)
                 )
@@ -167,19 +162,19 @@ def evaluate_mask(mask, bounding_box):
     return np.sum(cropped_mask == 255)
 
 
-def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, intrinsic):
+def is_point_in_3d_box(point_2d, object_set, view, camera_intrinsic):
     center_x, center_y, center_z, radius_x, radius_y, radius_z = TABLE_SIZES[object_set]
 
     # Convert the 2D point to camera coordinates
     point_3d_camera = image_to_camera_coordinates(
         point_2d[0],
         point_2d[1],
-        depth_image[round(point_2d[1]), round(point_2d[0])],
-        intrinsic,
+        view.depth[round(point_2d[1]), round(point_2d[0])],
+        camera_intrinsic,
     )
 
     # Convert the camera coordinates to world coordinates
-    point_3d_world = camera_to_world(camera_matrix, point_3d_camera)
+    point_3d_world = camera_to_world(view.rotation, view.translation, point_3d_camera)
 
     # Check if the point lies within the 3D box
     return (
@@ -189,7 +184,7 @@ def is_point_in_3d_box(point_2d, object_set, camera_matrix, depth_image, intrins
     )
 
 
-def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, intrinsic):
+def region_growing(bounding_box, view, camera_intrinsic):
     x, y, width, height = bounding_box
 
     initial_points = [
@@ -204,11 +199,9 @@ def region_growing(depth_image, rgbImage, camera_matrix, bounding_box, intrinsic
 
     for seed in initial_points:
         segmentation = createChooseMask(
-            depth_image,
-            rgbImage,
-            camera_matrix,
             (round(seed[0]), round(seed[1])),
-            intrinsic,
+            view,
+            camera_intrinsic,
         )
         score = evaluate_mask(segmentation, bounding_box)
         if score > best_score:

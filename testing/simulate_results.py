@@ -125,11 +125,6 @@ if __name__ == "__main__":
         viewer.cam.elevation = -67.63532110091747  # Vertical angle (degrees)
         viewer.cam.distance = 3.169448814604967  # Distance from the point of interest
 
-        # viewer.cam.lookat[:] = [0.0, 0.0, 0.0]  # Point of interest (x, y, z)
-        # viewer.cam.azimuth = -14.808629587156048  # Horizontal angle (degrees)
-        # viewer.cam.elevation = -39.8995126146786  # Vertical angle (degrees)
-        # viewer.cam.distance = 2.864629740942742  # Distance from the point of interest
-
         # for object_name, object_set in OBJECT_SETS.items():
         #     stateUpdates(model, data, object_set)
 

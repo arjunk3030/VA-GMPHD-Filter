@@ -142,8 +142,6 @@ def calculate_all_p_v(
     data.qpos[:] = scene_pos
     mujoco.mj_step(model, data)
 
-    # for geom in Constants.OBJECTS:
-    #     model.geom(geom[0]).pos += Constants.MUJOCO_TO_POSE[geom[1]]
     for object_set in OBJECT_SETS.values():
         for geom in object_set:
             newQuat = euler_to_quaternion(0, 0, geom[3])

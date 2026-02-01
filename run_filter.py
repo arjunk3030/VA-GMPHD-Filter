@@ -1,6 +1,7 @@
 import logging
 from pprint import pformat
 import random
+from util_files.TrajectorySettings import ACTIONS_BY_INDEX, PATH
 from util_files.config_params import (
     CAMERA_HEIGHT,
     CAMERA_WIDTH,
@@ -24,7 +25,6 @@ from util_files.object_parameters import (
 )
 from DenseProcessor import DenseProcessor
 from filters.FilterProcessing import FilterProcessing
-from util_files.TrajectorySettings import TRAJECTORY_PATH
 
 import mujoco
 import mujoco.viewer as viewer
@@ -213,24 +213,30 @@ def next_viewpoint(
 ):
     print(f"\nBeginning viewpoint number: {viewpoint_number}")
     print("-----------------------------------------------------")
-    if viewpoint_number >= len(TRAJECTORY_PATH):
+
+    if viewpoint_number >= len(PATH):
         logging.error("Cannot step: completed all steps")
         return []
 
-    if (
-        viewpoint_number > 0
-        and TRAJECTORY_PATH[viewpoint_number][1]
-        != TRAJECTORY_PATH[viewpoint_number - 1][1]
-    ):
-        turn_robot(TRAJECTORY_PATH[viewpoint_number][1], data)
+    # # --- robot rotation ---
+    # if (
+    #     viewpoint_number > 0
+    #     and PATH[viewpoint_number].yaw
+    #     != PATH[viewpoint_number - 1].yaw
+    # ):
+    #     turn_robot(PATH[viewpoint_number].yaw, data)
+    
+    print("viewpoint number is ", viewpoint_number)
 
-    points = np.array([element[0] for element in TRAJECTORY_PATH])
+    # --- build spline ---
+    points = np.array([wp.pos for wp in PATH])
 
     points[:, 0] -= model.body("base_link").pos[0]
     points[:, 1] -= model.body("base_link").pos[1]
 
     spline = interp1d(np.arange(len(points)), points, kind="linear", axis=0)
 
+    # --- move robot ---
     if viewpoint_number >= 0:
         current_position = np.array([data.qpos[0], data.qpos[1]])
         target_position = spline(viewpoint_number)
@@ -238,6 +244,7 @@ def next_viewpoint(
         distance = np.linalg.norm(target_position - current_position)
         duration = distance / FRAME_DURATION
         steps = int(duration / 0.01)
+
         if steps != 0:
             step_size = (target_position - current_position) / steps
 
@@ -245,22 +252,27 @@ def next_viewpoint(
                 current_position += step_size
                 data.qpos[0:2] = current_position
                 data.ctrl[0:2] = current_position
-                mujoco.mj_step(model, data)  # Step the simulation forward
+                mujoco.mj_step(model, data)
                 viewer.sync()
-                time.sleep(0.01)  # Wait for the next time step
+                time.sleep(0.01)
 
     mujoco.mj_forward(model, data)
+
+    # --- perception ---
     all_results = {}
-    for object_set in TRAJECTORY_PATH[viewpoint_number][2]:
+    targets = ACTIONS_BY_INDEX.get(viewpoint_number, [])
+
+    for object_set in targets:
         model.camera(CAMERA_NAME).targetbodyid = model.body(object_set).id
-        mujoco.mj_step(model, data)  # Step the simulation forward
+        mujoco.mj_step(model, data)
         viewer.sync()
 
         r.update_scene(data, CAMERA_NAME)
         rgb_img = r.render()
 
-        mujoco.mj_step(model, data)  # Step the simulation forward
+        mujoco.mj_step(model, data)
         viewer.sync()
+
         camera = r.scene.camera[1]
         forward = np.array(camera.forward, dtype=float)
 
@@ -269,6 +281,7 @@ def next_viewpoint(
         )
         if angle_to_turn < 0:
             angle_to_turn = 360 + angle_to_turn
+
         turn_camera(angle_to_turn, data)
         time.sleep(0.5)
 
@@ -276,19 +289,14 @@ def next_viewpoint(
         rgb_img = r.render()
 
         mujoco.mj_forward(model, data)
+
         if np.all(rgb_img == 0):
             logging.error("Image contains no objects")
             return
+
         dr.update_scene(data, CAMERA_NAME)
         depth_img = dr.render()
         depth_img[depth_img >= THRESHOLD] = 0
-        # if DEBUG_MODE:
-        # display_img = numpy2pil(rgb_img)
-        # Image.fromarray(depth_img, mode="L").save(
-        #     f"debug_images/depth_{current_step}.png"
-        # )
-        # Image.fromarray(depth_img, mode="L").show()
-        # Image.fromarray(rgb_img).save(f"debug_images/rgb_{current_step}.png")
 
         single_view = {
             STEP_KEY: viewpoint_number,
@@ -302,7 +310,9 @@ def next_viewpoint(
         all_results[object_set] = detect_objects(
             rgb_img, single_view, objectDetectionModel
         )
+
     return all_results
+
 
 
 def setup_objects(table_name, object_set):
@@ -419,7 +429,7 @@ if __name__ == "__main__":
                             distance,
                         )
             elif x in {"step_all", "a", "A"}:
-                while viewpoint_number < len(TRAJECTORY_PATH):
+                while viewpoint_number < len(PATH):
                     views = next_viewpoint(viewpoint_number, objectDetectionModel)
                     viewpoint_number += 1
                     if views != []:

@@ -1,10 +1,10 @@
 import logging
 from PIL import Image, ImageDraw
+import numpy as np
+from util_files.TrajectorySettings import DetectedObject, View
 from util_files.config_params import DEBUG_MODE
-from util_files.keys import DEPTH_IMG_KEY, OBJECTS_KEY, RGB_IMG_KEY, STEP_KEY
 from util_files.object_parameters import ID_TO_INDEX
-
-
+    
 def transform_background_color(image_np, color=(255, 255, 255, 0)):
     image_pil = Image.fromarray(image_np)
     image_pil = image_pil.convert("RGBA")
@@ -23,53 +23,42 @@ def transform_background_color(image_np, color=(255, 255, 255, 0)):
 
     return image_pil
 
-
-def detect_objects(rgbImage, single_view, model):
+def detect_objects(view: View, model):
+    """
+    Runs object detection on a View and fills its objects list.
+    """
     def calculate_cls(model, class_idx):
         return ID_TO_INDEX[int((model.names[int(class_idx)])[:3])]
 
-    rgb_image = transform_background_color(rgbImage)
-
+    rgb_image = transform_background_color(view.rgb)
     result = model(rgb_image)
+    view_image = Image.fromarray(result.render()[0])
 
-    xs, ys, zs, bounded_boxes, clss = [], [], [], [], []
+    detected_objects = []
 
-    view_image = Image.fromarray((result.render()[0]))
-    for j, det in enumerate(result.xywh):
+    for det in result.xywh:
         for *box, class_idx in det:
-            clss.append(calculate_cls(model, class_idx))
+            cls_id = calculate_cls(model, class_idx)
+            x_center, y_center, width, height, conf = [b.item() for b in box]
+            z = view.depth[round(y_center), round(x_center)]
+            bbox = [x_center, y_center, width, height]
 
-            x_center, y_center, width, height, conf = box
-            x_center = x_center.item()
-            y_center = y_center.item()
-            width = width.item()
-            height = height.item()
-            bounded_boxes.append([x_center, y_center, width, height])
+            # Log detection
+            logging.info(
+                "A %s detected at location (%s, %s) on step %d",
+                model.names[int(class_idx)],
+                x_center,
+                y_center,
+                view.step,
+            )
 
-            # logging.info(
-            #     "A %s detected at location (%s, %s) on step %d",
-            #     model.names[int(class_idx)],
-            #     x_center,
-            #     y_center,
-            #     single_view[STEP_KEY],
-            # )
-
+            # Draw for visualization
             draw = ImageDraw.Draw(view_image)
             draw.ellipse(
                 [(x_center - 2, y_center - 2), (x_center + 2, y_center + 2)],
                 fill=(255, 0, 0),
             )
 
-            xs.append(x_center)
-            ys.append(y_center)
-            zs.append(single_view[DEPTH_IMG_KEY][round(y_center), round(x_center)])
+            detected_objects.append(DetectedObject(x=x_center, y=y_center, z=z, bbox=bbox, cls=cls_id))
 
-        single_view[RGB_IMG_KEY] = rgb_image
-        single_view[OBJECTS_KEY] = [
-            [x, y, z, bounded_box, cls]
-            for x, y, z, bounded_box, cls in zip(xs, ys, zs, bounded_boxes, clss)
-        ]
-
-        # if DEBUG_MODE:
-        #     view_image.show()  # TODO:L ADD BACK
-    return single_view
+    return detected_objects
