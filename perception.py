@@ -2,10 +2,10 @@ import logging
 import numpy as np
 import time
 import math
+import point_estimation
 from util_files.TrajectorySettings import View
-import PointEstimation
 from object_detection import detect_objects
-from DenseProcessor import DenseProcessor
+from dense_fusion_parser import DenseProcessor
 from util_files.util import camera_intrinsic
     
 # Helper to step simulation
@@ -64,8 +64,8 @@ class PerceptionManager:
         depth_img[depth_img >= self.threshold] = 0
 
         # Compute camera matrices
-        rotation = PointEstimation.compute_rotation_matrix(self.r)
-        translation = PointEstimation.compute_translation_matrix(self.r)
+        rotation = point_estimation.compute_rotation_matrix(self.r)
+        translation = point_estimation.compute_translation_matrix(self.r)
 
         view = View(
             step=step_number,
@@ -116,7 +116,7 @@ class PerceptionManager:
             bbox = obj.bbox
             cls_id = obj.cls
 
-            if not PointEstimation.is_point_in_3d_box(
+            if not point_estimation.is_point_in_3d_box(
                 (round(obj.x), round(obj.y)),
                 object_set,
                 view,
@@ -125,7 +125,7 @@ class PerceptionManager:
                 print("ERROR: Object detected was not part of the right object set")
                 continue
 
-            choose_mask = PointEstimation.region_growing(
+            choose_mask = point_estimation.region_growing(
                 bbox,
                 view,
                 camera_intrinsic(self.model, self.camera_width, self.camera_height),
@@ -148,7 +148,7 @@ class PerceptionManager:
             distances.append(np.sqrt(world_coords_no_trans[0] ** 2 + world_coords_no_trans[1] ** 2))
 
             observed_cls.append(cls_id)
-            angle = PointEstimation.calculateAngle(rotation, view.rotation)
+            angle = point_estimation.calculateAngle(rotation, view.rotation)
             observed_means.append(np.array([world_coords[0], world_coords[1], angle]))
 
         average_distance = sum(distances) / len(distances) if distances else 0.0

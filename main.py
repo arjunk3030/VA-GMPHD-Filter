@@ -10,21 +10,17 @@ from simulation_loop import SimulationLoop
 from util_files.TrajectorySettings import PATH, ACTIONS_BY_INDEX
 from util_files.object_parameters import CAMERA_NAME, ENV_PATH, OBJECT_SETS, TABLE_LOCATIONS
 from util_files.transformation_utils import euler_to_quaternion, quaternion_multiply
-from filters.FilterProcessing import FilterProcessing
+from filters.filter_processing import FilterProcessing
 from motion import RobotController
 from perception import PerceptionManager
 
 ssl._create_default_https_context = ssl._create_stdlib_context
 
-# -------------------------
-# Setup logging
-# -------------------------
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# -------------------------
-# Helpers
-# -------------------------
+
 def setup_objects(model, data, table_name, object_set):
     """
     Initialize objects in Mujoco scene and return ground truth types/positions.

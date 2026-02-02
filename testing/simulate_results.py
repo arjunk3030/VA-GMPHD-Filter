@@ -1,7 +1,6 @@
 import logging
 from mujoco import mjtGeom
 
-# from ModelProcessor import ModelProcessor
 import mujoco
 import mujoco.viewer as viewer
 import numpy as np
@@ -17,7 +16,6 @@ from util_files.transformation_utils import (
 )
 import filters.calculate_visibility as calculate_visibility
 from util_files.object_parameters import (
-    CLS_TO_MATERIAL,
     CLS_TO_MESH,
     FLOOR_HEIGHT,
     MUJOCO_TO_POSE,
@@ -52,7 +50,7 @@ def set_values(geom, mean, cls):
         euler_angles,
     )
     geom.pos = new_pos
-    geom.rgba = [0.471, 0.322, 0.769, 0.35]  # light purple color + 0.2 translucency
+    geom.rgba = [0.471, 0.322, 0.769, 0.35]
 
 
 def stateUpdates(model, data, object_set):
@@ -77,30 +75,16 @@ if __name__ == "__main__":
         (20, [0.35734, 1.4, 148.58]),
     ]
 
-    # list3 = [
-    #     (1, [-0.028176, 0.009926, 177.53]),
-    #     (1, [-0.024711, -0.14291, -56.079]),
-    #     (12, [0.28332, 0.029457, 178.1]),
-    # ]
-    # NEW NEW ONE
+
 
     spec1 = mujoco.MjSpec()
     spec1.from_file("environment_assets/EXP2_scene.xml")
 
     object_body = spec1.worldbody.add_body()
-    # for result in list1:
-    #     object_body.pos = [0, 0, FLOOR_HEIGHT]
-    #     g = object_body.add_geom()
-    #     set_values(g, result[1], result[0])
-    # for result in list2:
-    #     object_body.pos = [0, 0, FLOOR_HEIGHT]
-    #     g = object_body.add_geom()
-    #     set_values(g, result[1], result[0])
-    # for result in list3:
-    #     object_body.pos = [0, 0, FLOOR_HEIGHT]
-    #     g = object_body.add_geom()
-    #     set_values(g, result[1], result[0])
-
+    for result in list2:
+        object_body.pos = [0, 0, FLOOR_HEIGHT]
+        g = object_body.add_geom()
+        set_values(g, result[1], result[0])
     # Set up Mujoco model
     model = spec1.compile()
     data = mujoco.MjData(model)
@@ -127,8 +111,8 @@ if __name__ == "__main__":
         viewer.cam.elevation = -67.63532110091747  # Vertical angle (degrees)
         viewer.cam.distance = 3.169448814604967  # Distance from the point of interest
 
-        # for object_name, object_set in OBJECT_SETS.items():
-        #     stateUpdates(model, data, object_set)
+        for object_name, object_set in OBJECT_SETS.items():
+            stateUpdates(model, data, object_set)
 
         scene_option = mujoco.MjvOption()
         scene_option.frame = mujoco.mjtFrame.mjFRAME_GEOM

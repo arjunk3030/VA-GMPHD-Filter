@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import time
 import logging
 import numpy as np
-from testing.ExperimentalResults import ObjectEvaluator
+from testing.experimental_results import ObjectEvaluator
 from PIL import Image
 import filters.calculate_visibility as calculate_visibility
 from util_files.logger_setup import logger

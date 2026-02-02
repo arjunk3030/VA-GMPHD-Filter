@@ -20,7 +20,7 @@ pip install -r requirements.txt
 To run a simulation, simply execute:
 
 ```
-mjpython run_filter.py
+mjpython main.py
 ```
 
 A live viewer will appear along with outputs to the console. All plots tracking the cardinality, positions (X, Y, Rotation), and misclassification rates over time will be saved as images.
@@ -29,7 +29,7 @@ A live viewer will appear along with outputs to the console. All plots tracking 
 
 There are two main files to run the simulation and evaluate the results:
 
-1. **`run_filter.py`**: This file simulates the filtering algorithm based on object trajectories and locations. It is manually operated using the following commands:
+1. **`main.py`**: This file simulates the filtering algorithm based on object trajectories and locations. It is manually operated using the following commands:
 
 ```
 Commands:
