@@ -1,8 +1,6 @@
 import logging
 from PIL import Image, ImageDraw
-import numpy as np
 from util_files.TrajectorySettings import DetectedObject, View
-from util_files.config_params import DEBUG_MODE
 from util_files.object_parameters import ID_TO_INDEX
     
 def transform_background_color(image_np, color=(255, 255, 255, 0)):

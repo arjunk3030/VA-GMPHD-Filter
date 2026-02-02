@@ -33,6 +33,7 @@ class ViewAction:
     targets: List[str]
 
 
+
 PATH: List[Waypoint] = [
     Waypoint((0.1, -0.8), 0),
     Waypoint((0.2875, -0.8), 0),

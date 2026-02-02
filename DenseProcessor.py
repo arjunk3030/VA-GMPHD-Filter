@@ -2,8 +2,6 @@ import argparse
 import logging
 import copy
 import numpy as np
-from PIL import Image
-from util_files.config_params import DEBUG_MODE
 import torch
 from torch.autograd import Variable
 import torchvision.transforms as transforms
@@ -12,11 +10,6 @@ from DFP.lib.transformations import (
     quaternion_matrix,
     quaternion_from_matrix,
 )
-from torchvision import transforms
-import random
-
-import mujoco
-import mujoco.viewer as viewer
 
 
 class DenseProcessor:
@@ -68,7 +61,6 @@ class DenseProcessor:
 
         self.estimator = estimator
         self.refiner = refiner
-        # self.seg_mask = run_test(self.img)
 
     def get_bbox(self, bounded_box):
         x_center, y_center, width, height = bounded_box
@@ -197,15 +189,3 @@ class DenseProcessor:
             logging.log("Error preprocessing data: ZeroDivisionError")
             my_pred.append([-1.0 for i in range(7)])
         return my_r_final, (my_t_final * self.cam_scale)
-
-
-def createGeom(scene: mujoco.MjvScene, location):
-    scene.ngeom += 1
-    mujoco.mjv_initGeom(
-        scene.geoms[scene.ngeom - 1],
-        type=mujoco.mjtGeom.mjGEOM_SPHERE,
-        size=[0.00125, 0.00125, 0.00125],
-        pos=np.array([location[0], location[1], location[2]]),
-        mat=np.eye(3).flatten(),
-        rgba=[random.random(), random.random(), random.random(), 1],
-    )

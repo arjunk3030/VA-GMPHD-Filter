@@ -2,6 +2,7 @@
 *.ii
 *.gpu
 *.ptx
+*.mat
 *.cubin
 *.fatbin
 __pycache__/

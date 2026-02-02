@@ -1,14 +1,12 @@
-from collections import defaultdict
 from itertools import cycle
 import matplotlib.pyplot as plt
 import time
 import logging
 import numpy as np
-from util_files.config_params import CURRENT_FILTER
 from testing.ExperimentalResults import ObjectEvaluator
 from PIL import Image
 import filters.calculate_visibility as calculate_visibility
-from logger_setup import logger
+from util_files.logger_setup import logger
 from filters.GMPHD.GMPHD import GMPHD, GaussianMixture
 from filters.GMPHD.GMPHD_params import GMPHD_model
 from filters.NOV_GMPHD.NOV_GMPHD import NOV_GMPHD, NOV_GaussianMixture
@@ -18,21 +16,22 @@ from filters.VA_GMPHD.VA_GMPHD_params import VA_GMPHD_model
 
 
 class FilterProcessing:
-    def __init__(self, ground_truth_objs, ground_truth_types, object_set):
+    def __init__(self, ground_truth_objs, ground_truth_types, object_set, filter):
         self.ground_truth_objs = ground_truth_objs
         self.ground_truth_types = ground_truth_types
         self.object_set = object_set
         self.estimated_mean = []
         self.estimated_cls = []
-        if CURRENT_FILTER == "VA_GMPHD":
+        self.current_filter = filter
+        if filter == "VA_GMPHD":
             self.model = VA_GMPHD_model()
             self.gmphd = VA_GMPHD(self.model)
             self.gaussian_mixture = VA_GaussianMixture([], [], [], [])
-        elif CURRENT_FILTER == "NOV_GMPHD":
+        elif filter == "NOV_GMPHD":
             self.model = NOV_GMPHD_model()
             self.gmphd = NOV_GMPHD(self.model)
             self.gaussian_mixture = NOV_GaussianMixture([], [], [], [])
-        elif CURRENT_FILTER == "GMPHD":
+        elif filter == "GMPHD":
             self.model = GMPHD_model()
             self.gmphd = GMPHD(self.model)
             self.gaussian_mixture = GaussianMixture([], [], [], [])
@@ -41,13 +40,13 @@ class FilterProcessing:
         logging.getLogger("pil").setLevel(logging.ERROR)
         self.all_measurements = []
 
-    def run_filter(self, scene_pos, scene_ctrl, observed_means, observed_cls, distance):
+    def run_filter(self, scene_pos, scene_ctrl, observed_means, observed_cls, distance, camera_width, camera_height):
         self.all_measurements.append(observed_means)
         a = time.time()
 
         v = self.gmphd.prediction(self.gaussian_mixture)
         p_v = [0] * len(v.w)
-        if len(v.m) > 0 and CURRENT_FILTER != "GMPHD":
+        if len(v.m) > 0 and self.current_filter != "GMPHD":
             p_v = calculate_visibility.calculate_all_p_v(
                 self.object_set,
                 scene_pos,
@@ -55,6 +54,9 @@ class FilterProcessing:
                 v.m,
                 v.cls,
                 self.estimated_mean[-1],
+                camera_width, 
+                camera_height
+                
             )
         v = self.gmphd.correction(v, p_v, observed_means, observed_cls, distance)
         self.gaussian_mixture = self.gmphd.pruning(v)

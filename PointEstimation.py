@@ -1,9 +1,8 @@
 import math
 import numpy as np
-from util_files.keys import ROTATION_KEY, TRANSLATION_KEY
 from util_files.object_parameters import FLOOR_HEIGHT, TABLE_SIZES
 from util_files.transformation_utils import quaternion_to_rotation_matrix
-from logger_setup import logger
+from util_files.logger_setup import logger
 
 
 def compute_rotation_matrix(r):
@@ -48,9 +47,9 @@ def camera_to_world(rotation, translation, point_camera):
     )
 
 
-def world_to_camera(camera_matrix, point_world):
-    return camera_matrix[ROTATION_KEY].T @ (
-        point_world - camera_matrix[TRANSLATION_KEY]
+def world_to_camera(rotation, translation, point_world):
+    return rotation.T @ (
+        point_world - translation
     )
 
 

@@ -3,8 +3,7 @@ import mujoco
 from PIL import Image
 from mujoco import mjtGeom
 from scipy.spatial.transform import Rotation as R
-from util_files.config_params import CAMERA_HEIGHT, CAMERA_WIDTH
-from logger_setup import logger
+from util_files.logger_setup import logger
 from util_files.object_parameters import (
     CAMERA_NAME,
     CLS_TO_MATERIAL,
@@ -73,7 +72,7 @@ def set_values(geom, mean, cls):
 
 
 def calculate_all_p_v(
-    current_object_set, scene_pos, scene_ctrl, all_means, all_cls, estimated_mean
+    current_object_set, scene_pos, scene_ctrl, all_means, all_cls, estimated_mean, camera_width, camera_height
 ):
     allGaussiansModelSpec = mujoco.MjSpec()
     allGaussiansModelSpec.from_file("environment_assets/empty_EXP2_scene.xml")
@@ -113,7 +112,7 @@ def calculate_all_p_v(
                 model.geom(geom[0]).pos = [geom[2][0], geom[2][1], originalZ]
 
         mujoco.mj_step(model, data)
-        dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
+        dr = mujoco.Renderer(model, camera_height, camera_width)
         dr.enable_depth_rendering()
         dr.update_scene(data, CAMERA_NAME)
 
@@ -154,14 +153,14 @@ def calculate_all_p_v(
 
     data.qpos[:] = scene_pos
     mujoco.mj_step(model, data)
-    dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
+    dr = mujoco.Renderer(model, camera_height, camera_width)
     dr.enable_depth_rendering()
     dr.update_scene(data, CAMERA_NAME)
     occluded_depth_img = dr.render()
     occluded_depth_img[occluded_depth_img >= THRESHOLD] = 0
     mujoco.mj_step(model, data)
 
-    # r = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
+    # r = mujoco.Renderer(model, camera_height, camera_width)
     # r.update_scene(data, CAMERA_NAME)
     # Image.fromarray(r.render()).show()
 

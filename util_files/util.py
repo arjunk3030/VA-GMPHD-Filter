@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from PIL import Image
 
@@ -21,7 +22,7 @@ def display_images_horizontally(images):
 
     stacked_image_column = np.hstack(stacked_columns)
     stacked_image = Image.fromarray(stacked_image_column)
-    # stacked_image.show()  # TODO: ADD BACK
+    stacked_image.show()  # TODO: ADD BACK
 
 
 def numpy2pil(np_array: np.ndarray) -> Image:
@@ -32,3 +33,12 @@ def numpy2pil(np_array: np.ndarray) -> Image:
 
     img = Image.fromarray(np_array, "RGB")
     return img
+
+def camera_intrinsic(model, camera_width, camera_height):
+    fov = model.vis.global_.fovy  # Fixed FOV angle
+    width = camera_width
+    height = camera_height
+
+    fW = 0.5 * height / math.tan(fov * math.pi / 360)
+    fH = 0.5 * height / math.tan(fov * math.pi / 360)
+    return np.array(((fW, 0, width / 2), (0, fH, height / 2), (0, 0, 1)))

@@ -15,7 +15,6 @@ from util_files.transformation_utils import (
     asymmetric_to_symmetric_rotation,
     euler_to_quaternion,
 )
-from util_files.config_params import CAMERA_HEIGHT, CAMERA_WIDTH
 import filters.calculate_visibility as calculate_visibility
 from util_files.object_parameters import (
     CLS_TO_MATERIAL,
@@ -106,6 +105,9 @@ if __name__ == "__main__":
     model = spec1.compile()
     data = mujoco.MjData(model)
     # state updates
+
+    CAMERA_HEIGHT = 480
+    CAMERA_WIDTH = 640
 
     dr = mujoco.Renderer(model, CAMERA_HEIGHT, CAMERA_WIDTH)
     dr.enable_depth_rendering()
