@@ -1,6 +1,7 @@
 import argparse
 import logging
 import ssl
+import sys
 import numpy as np
 import torch
 import mujoco
@@ -55,8 +56,9 @@ def main():
     parser.add_argument("--frame-duration", type=float, default=0.5, help="Frame duration in seconds")
     parser.add_argument("--camera-height", type=int, default=480, help="Camera image height")
     parser.add_argument("--camera-width", type=int, default=640, help="Camera image width")
-
-    args = parser.parse_args()
+    parser.add_argument("--viewer", action="store_true",help="Enable MuJoCo viewer window",)
+    args, x = parser.parse_known_args()
+    sys.argv = [sys.argv[0]] + x
     
     set_debug_mode(args.debug)
 
@@ -74,9 +76,16 @@ def main():
 
     objectDetectionModel = torch.hub.load("ultralytics/yolov5", "custom", path="yolo-for-ycb/best.pt")
     filters = {}
+    
+    if args.viewer:
+        viewer_ctx = viewer.launch_passive(model, data)
+        v = viewer_ctx.__enter__()
+    else:
+        viewer_ctx = None
+        v = None
 
-    # Launch viewer
-    with viewer.launch_passive(model, data) as v:
+    try:
+        v = None
         robot = RobotController(model, data, v)
         perception = PerceptionManager(model, data, v, rgb_renderer, depth_renderer, CAMERA_NAME, camera_height=args.camera_height, camera_width=args.camera_width, object_detection_model=objectDetectionModel)
 
@@ -89,8 +98,8 @@ def main():
         # Initialize simulation loop
         sim_loop = SimulationLoop(robot, perception, filters, PATH, ACTIONS_BY_INDEX, frame_duration=args.frame_duration, camera_width=args.camera_width, camera_height=args.camera_height)
 
-        # Control loop (manual CLI or can add AUTO_RUN)
-        while v.is_running():
+        # Control loop
+        while (v is None) or v.is_running():
             cmd = input(
                 "Commands:\n"
                 "  s - Step robot one step\n"
@@ -111,6 +120,9 @@ def main():
                 sim_loop.print_filter_results()
             elif cmd == "e":
                 sim_loop.evaluate_filters()
+    finally:
+        if viewer_ctx is not None:
+            viewer_ctx.__exit__(None, None, None)
 
 if __name__ == "__main__":
     main()

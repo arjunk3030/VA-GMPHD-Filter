@@ -12,13 +12,14 @@ from util_files.util import camera_intrinsic
 def step_sim(model, data, viewer, dt=0.01):
     import mujoco
     mujoco.mj_step(model, data)
-    viewer.sync()
+    if(viewer is not None):
+        viewer.sync()
     time.sleep(dt)
     mujoco.mj_forward(model, data)
 
 
 class PerceptionManager:
-    def __init__(self, model, data, viewer, renderer, depth_renderer, camera_name, camera_height, camera_width, threshold=1.0, object_detection_model=None, ):
+    def __init__(self, model, data, viewer, renderer, depth_renderer, camera_name, camera_height, camera_width, threshold=1.0, object_detection_model=None):
         self.model = model
         self.data = data
         self.viewer = viewer

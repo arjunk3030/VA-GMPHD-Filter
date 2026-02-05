@@ -5,7 +5,7 @@ from util_files.TrajectorySettings import PATH
 from scipy.interpolate import interp1d
 
 class RobotController:
-    def __init__(self, model, data, viewer):
+    def __init__(self, model, data, viewer=None):
         self.model = model
         self.data = data
         self.viewer = viewer
@@ -13,7 +13,8 @@ class RobotController:
     def step_sim(self, dt=0.01):
         import mujoco
         mujoco.mj_step(self.model, self.data)
-        self.viewer.sync()
+        if(self.viewer is not None):
+            self.viewer.sync()
         time.sleep(dt)
         mujoco.mj_forward(self.model, self.data)
 

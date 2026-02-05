@@ -2,6 +2,7 @@ import logging
 
 # Create a global logger
 logger = logging.getLogger("global_logger")
+logger.propagate = False
 
 # Only add handler if it doesn't exist yet (avoid duplicates if imported multiple times)
 if not logger.hasHandlers():

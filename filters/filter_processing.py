@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import time
 import logging
 import numpy as np
+from sympy import pprint
 from testing.experimental_results import ObjectEvaluator
 from PIL import Image
 import filters.calculate_visibility as calculate_visibility
@@ -35,9 +36,6 @@ class FilterProcessing:
             self.model = GMPHD_model()
             self.gmphd = GMPHD(self.model)
             self.gaussian_mixture = GaussianMixture([], [], [], [])
-
-        logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
-        logging.getLogger("pil").setLevel(logging.ERROR)
         self.all_measurements = []
 
     def run_filter(self, scene_pos, scene_ctrl, observed_means, observed_cls, distance, camera_width, camera_height):
