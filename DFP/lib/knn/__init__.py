@@ -34,7 +34,7 @@ class TestKNearestNeighbor(unittest.TestCase):
             query = Variable(torch.rand(2, D, M))
 
             inds = knn(ref, query)
-            for obj in gc.get_objects():
+            # for obj in gc.get_objects():
                 # if torch.is_tensor(obj):
                     # print(
                     #     functools.reduce(op.mul, obj.size())
