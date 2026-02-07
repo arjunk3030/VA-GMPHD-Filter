@@ -85,7 +85,6 @@ def main():
         v = None
 
     try:
-        v = None
         robot = RobotController(model, data, v)
         perception = PerceptionManager(model, data, v, rgb_renderer, depth_renderer, CAMERA_NAME, camera_height=args.camera_height, camera_width=args.camera_width, object_detection_model=objectDetectionModel)
 

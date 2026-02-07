@@ -35,13 +35,13 @@ class DenseProcessor:
         parser.add_argument(
             "--model",
             type=str,
-            default="DFP/trained_models/ycb/pose_model_26_0.012863246640872631.pth",
+            default="DFP/trained_models/ycb_pretrained/pose_model_26_0.012863246640872631.pth",
             help="model",
         )
         parser.add_argument(
             "--refine-model",
             type=str,
-            default="DFP/trained_models/ycb/pose_refine_model_69_0.009449292959118935.pth",
+            default="DFP/trained_models/ycb_pretrained/pose_refine_model_69_0.009449292959118935.pth",
             help="refine model",
         )
         opt = parser.parse_args()

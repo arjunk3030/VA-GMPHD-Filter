@@ -10,6 +10,11 @@ Before running the project, install the dependencies listed in `requirements.txt
 pip install -r requirements.txt
 ```
 
+## Drive Link for Model Weights
+
+To run the DenseFusion estimator and YOLO for YCB objects, please download and add the pretrained weights from here:  
+[Drive Link for Object Weights](https://drive.google.com/drive/u/0/folders/1gc7cS-eSFkdntGTpGW8woEp01GbusMr0)
+
 ### MuJoCo Requirements
 
 - **MuJoCo**: Make sure you have **MuJoCo** installed and configured. This project requires only a CPU, not a GPU, but ensure your system meets any additional MuJoCo requirements.
@@ -67,10 +72,6 @@ year={2023}
 }
 
 All object meshes are directly from the YCB Video Dataset, a subset of the YCB-Dataset defined here: https://www.ycbbenchmarks.com/object-models/
-
-## Drive Link for Object Weights
-
-Please download the necessary object weights from the following drive link: [Drive Link for Object Weights]()
 
 ## License
 

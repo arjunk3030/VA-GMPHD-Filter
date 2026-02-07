@@ -6,3 +6,4 @@
 *.cubin
 *.fatbin
 __pycache__/
+yolo-for-ycb/
