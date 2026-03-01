@@ -22,7 +22,19 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def setup_objects(model, data, table_name, object_set):
+def createGeom(scene: mujoco.MjvScene, location, rgba_given):
+    scene.ngeom += 1
+    mujoco.mjv_initGeom(
+        scene.geoms[scene.ngeom - 1],
+        type=mujoco.mjtGeom.mjGEOM_SPHERE,
+        size=[0.0075, 0.0075, 0.0075],
+        pos=np.array([location[0], location[1], location[2]]),
+        mat=np.eye(3).flatten(),
+        rgba=rgba_given,
+    )
+
+
+def setup_objects(model, scene, table_name, object_set):
     """
     Initialize objects in Mujoco scene and return ground truth types/positions.
     """
@@ -90,7 +102,8 @@ def main():
 
         # Initialize objects and filters
         for object_name, object_set in OBJECT_SETS.items():
-            types, objs = setup_objects(model, data, object_name, object_set)
+            types, objs = setup_objects(model, v.user_scn, object_name, object_set)
+            print(f"Ground truth objects:  {objs}")
             filters[object_name] = FilterProcessing(objs, types, object_name, args.filter)
         robot.step_sim()
 

@@ -91,5 +91,5 @@ ACTIONS_OBJECTS3_ONLY: List[ViewAction] = [
 
 ACTIONS_BY_INDEX = {
     action.waypoint_idx: action.targets
-    for action in ACTIONS
+    for action in ACTIONS_OBJECTS1_ONLY
 }

@@ -107,7 +107,7 @@ def get_bbox(posecnn_rois, idx):
 
 # Instantiate PoseNet and PoseRefineNet models on CPU
 estimator = PoseNet(num_points=num_points, num_obj=num_obj)
-estimator.load_state_dict(torch.load(opt.model, map_location=torch.device("cpu")))
+estimator.load_state_dict()
 estimator.eval()
 
 refiner = PoseRefineNet(num_points=num_points, num_obj=num_obj)

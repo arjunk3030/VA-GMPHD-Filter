@@ -1,6 +1,4 @@
-import numpy as np
-import numpy.linalg as lin
-from typing import List, Dict, Any
+from typing import Dict, Any
 import torch
 
 
@@ -30,7 +28,7 @@ def multivariate_gaussian_predefined_det_and_inv(
     :return: probability density function at x
     """
     dim = x.shape[0]
-    first_part = 1 / (torch.pow(2 * torch.pi, dim / 2.0) * torch.sqrt(detP))
+    first_part = 1 / ((2 * torch.pi)**(dim / 2.0) * torch.sqrt(detP))
     diff = x - m
     second_part = -0.5 * diff @ invP @ diff
     return first_part * torch.exp(second_part)
@@ -156,6 +154,9 @@ class VA_GaussianMixture:
                         x_2d, m_2d, self.detP[i], invP_2x2
                     )
                 )
+                
+        if not val:
+            return torch.tensor([], device=x.device, requires_grad=True)
         return torch.stack(val)
 
     def copy(self):
@@ -318,7 +319,7 @@ class VA_GMPHD:
             z = Z[j]
             values = v_residual.mixture_component_values_list(z)
             # Ensure clutter density function returns a torch tensor
-            clutter = clutter_intensity_function(z, self.lc, self.surveillance_region)
+            clutter = self.clutter_density_func(z)
             normalization_factor = torch.sum(values) + clutter
             
             obs_cls = torch.zeros(self.nObj, device=z.device)
@@ -335,7 +336,9 @@ class VA_GMPHD:
             new_cls_unnorm = v_residual.cls + obs_cls
             cls.append(new_cls_unnorm / torch.sum(new_cls_unnorm, dim=1, keepdim=True))
 
-            if torch.max(values) < self.A:
+            max_val = torch.max(values) if values.numel() > 0 else torch.tensor(0.0, device=z.device)
+
+            if max_val < self.A:
                 w.append(self.birth_w.unsqueeze(0))
                 m.append(z.unsqueeze(0))
                 P.append(self.birth_P.unsqueeze(0))
@@ -399,6 +402,14 @@ class VA_GMPHD:
             cls_final.append(cls_new)
             
             I = [i for i in I if i not in L]
+
+        if len(w_final) == 0:
+            return VA_GaussianMixture(
+                w=torch.tensor([], device=v.w.device),
+                m=torch.tensor([], device=v.m.device).reshape(0, 3),
+                P=torch.tensor([], device=v.P.device).reshape(0, 3, 3),
+                cls=torch.tensor([], device=v.cls.device).reshape(0, self.nObj)
+            )
 
         w_out = torch.stack(w_final)
         m_out = torch.stack(m_final)

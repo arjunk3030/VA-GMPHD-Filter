@@ -1,6 +1,6 @@
 <mujoco model="ycb_objects">
     <statistic center="0 0 0.8" extent="2"/>  
-    <compiler angle="radian" assetdir="assets" autolimits="true"/>
+    <compiler angle="radian" assetdir="assets" autolimits="true" />
     <option timestep="0.1"/>
 
     <worldbody>
@@ -21,11 +21,7 @@
         <body name="objects2" pos="0.1 -0.1 1.1625">
             <geom name="objects2_geo1" class="visual" mesh="003" material="003_mtl"/>
             <geom name="objects2_geo2" class="visual" mesh="004" material="004_mtl"/>
-            <geom name="objects2_geo3" class="visual" mesh="012" pos="0 0 0" material="012_mtl"/>
-            <!-- <geom name="objects2_geo4" class="visual" mesh="012" pos="0.161 0 0"  material="012_mtl"/>
-            <geom name="objects2_geo5" class="visual" mesh="012" pos="0.3 0 0"  material="012_mtl"/>
-            <geom name="objects2_geo6" class="visual" mesh="012" pos="0.45 0 0" material="012_mtl"/>
-            <geom name="objects2_geo7" class="visual" mesh="012" pos="0.6 0 0" material="012_mtl"/> -->
+            <geom name="objects2_geo3" class="visual" mesh="012" material="012_mtl"/> 
             <geom name="objects2_geo4" class="visual" mesh="001" material="001_mtl"/>
             <geom name="objects2_geo5" class="visual" mesh="003" material="003_mtl"/>
             <geom name="objects2_geo6" class="visual" mesh="001" material="001_mtl"/>

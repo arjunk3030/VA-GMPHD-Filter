@@ -12,7 +12,7 @@
         <texture type="2d" name="003_texture" file="YCB_objects/textures/003_texture.png"/>
         <material name="003_mtl" texture="003_texture"/>
 
-        <mesh file="YCB_objects/004.obj" scale="1 1 1"/>
+        <mesh file="YCB_objects/004.obj" scale="1 1 1" />
         <texture type="2d" name="004_texture" file="YCB_objects/textures/004_texture.png"/>
         <material name="004_mtl" texture="004_texture"/>
 

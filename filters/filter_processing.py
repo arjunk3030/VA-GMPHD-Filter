@@ -1,10 +1,12 @@
 from itertools import cycle
+from turtle import distance
 import matplotlib.pyplot as plt
 import time
 import logging
 import numpy as np
 import torch
 from sympy import pprint
+from filters.GOSPA import va_gmphd_training_loss
 from testing.experimental_results import ObjectEvaluator
 from PIL import Image
 import filters.calculate_visibility as calculate_visibility
@@ -23,6 +25,7 @@ class FilterProcessing:
         self.ground_truth_types = ground_truth_types
         self.object_set = object_set
         self.estimated_mean = []
+        self.estimated_cls = []
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if filter == "VA_GMPHD":
             self.model = VA_GMPHD_model()
@@ -34,6 +37,7 @@ class FilterProcessing:
                 cls=torch.tensor([], device=device).reshape(0, self.gmphd.nObj)
             )
         self.filter = filter
+        self.device = torch.device("cpu")
         # elif CURRENT_FILTER == "NOV_GMPHD":
         #     self.model = NOV_GMPHD_model()
         #     self.gmphd = NOV_GMPHD(self.model)
@@ -51,9 +55,12 @@ class FilterProcessing:
         self.all_measurements.append(observed_means)
         a = time.time()
 
+        observed_means = torch.as_tensor(observed_means, dtype=torch.float32, device=self.device)
+        observed_cls = torch.as_tensor(observed_cls, dtype=torch.long, device=self.device)
+        
         v = self.gmphd.prediction(self.gaussian_mixture)        
         
-        p_v = torch.ones(len(v.w), device=self.gaussian_mixture.w.device)
+        p_v = torch.ones(len(v.w), device=self.device)
         
         
         if len(v.m) > 0 and self.filter != "GMPHD":
@@ -61,14 +68,14 @@ class FilterProcessing:
                 self.object_set,
                 scene_pos,
                 scene_ctrl,
-                v.m,
+                v.m, # TODO: fix
                 v.cls,
                 self.estimated_mean[-1],
                 camera_width, 
                 camera_height
                 
             )
-            p_v = torch.as_tensor(p_v_raw, dtype=torch.float32, device=self.gaussian_mixture.w.device)
+            p_v = torch.as_tensor(p_v_raw, dtype=torch.float32, device=self.device)
             
         v = self.gmphd.correction(v, p_v, observed_means, observed_cls, distance)
         self.gaussian_mixture = self.gmphd.pruning(v)
@@ -77,6 +84,19 @@ class FilterProcessing:
             self.gaussian_mixture
         )
 
+
+        gt_raw = [
+            [0.472, 1.485, 110], [0.442, 1.285, 180], [0.602, 1.505, 0], 
+            [0.352, 1.285, 0], [0.6194999999999999, 1.345, 0], [0.677, 1.315, 35], 
+            [0.7344999999999999, 1.315, 65], [0.362, 1.405, 40], [0.492, 1.385, 0], 
+            [0.532, 1.285, 123]
+        ]
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        gt_m = torch.tensor(gt_raw, device=device)[:, :2]
+
+        print(f"Estimated loss: {va_gmphd_training_loss(self.gaussian_mixture, gt_m)}")
         if len(estimated_mean) == 0:
             self.estimated_mean.append([])
             self.estimated_cls.append([])
@@ -89,6 +109,7 @@ class FilterProcessing:
             self.estimated_cls.append(list(sorted_cls))
 
             logger.info(f"{self.object_set}: {combined}")
+        
         logger.info("Filtration time: " + str(time.time() - a) + " sec")
 
     def extract_axis_for_plot(self, X_collection, delta):

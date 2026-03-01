@@ -3,6 +3,7 @@ import mujoco
 from PIL import Image
 from mujoco import mjtGeom
 from scipy.spatial.transform import Rotation as R
+import torch
 from util_files.logger_setup import logger
 from util_files.object_parameters import (
     CAMERA_NAME,
@@ -59,9 +60,15 @@ def set_values(geom, mean, cls):
     geom.type = mjtGeom.mjGEOM_MESH
     geom.meshname = CLS_TO_MESH(cls)
     geom.material = CLS_TO_MATERIAL(cls)
-    true_center = np.array([mean[0], mean[1], 0])
-    euler_angles = np.array([0, 0, mean[2]])  # in degrees
-    geom.quat = euler_to_quaternion(0, 0, mean[2])
+    
+    if torch.is_tensor(mean):
+        mean_np = mean.detach().cpu().numpy()
+    else:
+        mean_np = mean
+        
+    true_center = np.array([mean_np[0], mean_np[1], 0])
+    euler_angles = np.array([0, 0, mean_np[2]])  # in degrees
+    geom.quat = euler_to_quaternion(0, 0, mean_np[2])
     new_pos = asymmetric_to_symmetric_rotation(
         true_center,
         MUJOCO_TO_POSE[cls],
@@ -89,7 +96,7 @@ def calculate_all_p_v(
         object_body = singleGaussian.worldbody.add_body()
         object_body.pos = [0, 0, FLOOR_HEIGHT]
         geom = object_body.add_geom()
-        set_values(geom, mean, cls.index(max(cls)))
+        set_values(geom, mean, torch.argmax(cls).item())
 
         model = singleGaussian.compile()
         data = mujoco.MjData(model)
@@ -127,9 +134,9 @@ def calculate_all_p_v(
         # Image.fromarray(r.render()).show()
 
         # Add to model for 2nd list
-        if any(np.array_equal(mean, sublist) for sublist in estimated_mean):
+        if any(torch.allclose(mean.cpu(), torch.tensor(sublist, dtype=torch.float32), atol=1e-3) for sublist in estimated_mean):
             geom = allGaussians.add_geom()
-            set_values(geom, mean, cls.index(max(cls)))
+            set_values(geom, mean, torch.argmax(cls).item())
 
     model = allGaussiansModelSpec.compile()
     data = mujoco.MjData(model)
@@ -170,6 +177,6 @@ def calculate_all_p_v(
             calculate_visibility_probability(visible_points, occluded_depth_img)
         )
     logger.info(
-        f"visibilities are {visibilities} {[cls.index(max(cls)) for cls in all_cls]}"
+        f"visibilities are {visibilities} {[torch.argmax(cls).item() for cls in all_cls]}"
     )
     return visibilities

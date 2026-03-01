@@ -3,7 +3,9 @@ from filters.VA_GMPHD.VA_GMPHD import clutter_intensity_function
 from util_files.object_parameters import YCB_OBJECT_COUNT
 
 
-def VA_GMPHD_model():
+import torch
+
+def VA_GMPHD_model(device=torch.device("cpu")):
     model = {}
 
     # Sampling time, time step duration
@@ -12,40 +14,37 @@ def VA_GMPHD_model():
     model["nObj"] = YCB_OBJECT_COUNT
 
     # Surveillance region
-    x_min = -4
-    x_max = 4
-    y_min = -2
-    y_max = 3
-    model["surveillance_region"] = np.array([[x_min, x_max], [y_min, y_max]])
+    x_min, x_max = -4.0, 4.0
+    y_min, y_max = -2.0, 3.0
+    model["surveillance_region"] = torch.tensor([[x_min, x_max], [y_min, y_max]], device=device)
 
-    # Transition matrix
-    I_3 = np.eye(3)
+    # Transition matrix (Identity 3x3)
+    I_3 = torch.eye(3, device=device)
 
     # Process noise covariance matrix
-    Q = (T_s**2) * I_3
-    # Standard deviation of the process noise
-    sigma_w_xy = 0.03  # Standard deviation for x and y
-    sigma_w_z = 60
-    Q = np.diag([sigma_w_xy**2, sigma_w_xy**2, sigma_w_z**2])
-    model["Q"] = Q
+    sigma_w_xy = 0.03
+    sigma_w_z = 60.0
+    model["Q"] = torch.diag(torch.tensor([sigma_w_xy**2, sigma_w_xy**2, sigma_w_z**2], device=device))
 
-    model["birth_w"] = 0.6
-    model["birth_P"] = np.diag([0.0375, 0.0375, 60])
+    model["birth_w"] = torch.tensor(0.6, device=device)
+    model["birth_P"] = torch.diag(torch.tensor([0.0375, 0.0375, 60.0], device=device))
 
     # MEASUREMENT MODEL
-    # Probability of detection
-    model["specs"] = [1, 0.4, 0.6, 0.2]  # 0.5
+    model["specs"] = torch.tensor([1.0, 0.4, 0.6, 0.2], device=device)
     model["alpha"] = 0.9
 
-    # Measurement matrix z = Hx + v = N(z; Hx, R)
-    model["H"] = I_3  # Since we are now measuring (x, y, z)
+    # Measurement matrix
+    model["H"] = I_3
+    
     # Measurement noise covariance matrix
-    sigma_v_xy = 0.05  # Standard deviation for measurement noise in x and y
-    sigma_v_z = 50  # Larger standard deviation for z due to higher measurement noise
-    model["R"] = np.diag([sigma_v_xy**2, sigma_v_xy**2, sigma_v_z**2])
+    sigma_v_xy = 0.05
+    sigma_v_z = 50.0
+    model["R"] = torch.diag(torch.tensor([sigma_v_xy**2, sigma_v_xy**2, sigma_v_z**2], device=device))
 
     # The reference to clutter intensity function
     model["lc"] = 0.45
+    
+    # Updated lambda to ensure it uses the torch-based clutter function
     model["clutt_int_fun"] = lambda z: clutter_intensity_function(
         z, model["lc"], model["surveillance_region"]
     )
